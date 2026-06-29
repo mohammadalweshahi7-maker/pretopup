@@ -44,6 +44,7 @@ BOT: Bot | None = None
 # Telegram Bot API supports icon_custom_emoji_id for ReplyKeyboard and InlineKeyboard buttons in recent Bot API versions.
 # Keep the visible button text clean; Telegram shows the custom emoji before the text when the bot/account is eligible.
 CUSTOM_EMOJI = {
+    # Main menu / wallet icons
     "voucher": "5987568986290657784",
     "wallet": "5276137490846075469",
     "orders": "6093382540784046658",
@@ -53,60 +54,69 @@ CUSTOM_EMOJI = {
     "about": "5303162314130758043",
     "support": "5852800639188341430",
     "balance": "5388622778817589921",
+
+    # Voucher / product category icons sent by admin
+    "roblox": "5388921730016240894",
+    "steam": "5318801707394695066",
+    "itunes": "5332512686112520612",
+    "pubg": "5314544952422704045",
+    "playstation": "5363934885893389858",
+    "razer": "5201873447554145566",
+    "yalla": "5911296461672289184",
+    "freefire": "6048398234441750217",
+}
+
+CATEGORY_ICON_IDS = {
+    "roblox": CUSTOM_EMOJI["roblox"],
+    "steam": CUSTOM_EMOJI["steam"],
+    "itunes": CUSTOM_EMOJI["itunes"],
+    "ios": CUSTOM_EMOJI["itunes"],
+    "apple": CUSTOM_EMOJI["itunes"],
+    "pubg": CUSTOM_EMOJI["pubg"],
+    "playstation": CUSTOM_EMOJI["playstation"],
+    "psn": CUSTOM_EMOJI["playstation"],
+    "razer": CUSTOM_EMOJI["razer"],
+    "yalla": CUSTOM_EMOJI["yalla"],
+    "ludo": CUSTOM_EMOJI["yalla"],
+    "freefire": CUSTOM_EMOJI["freefire"],
+    "free_fire": CUSTOM_EMOJI["freefire"],
+    "garena": CUSTOM_EMOJI["freefire"],
+    "valorant": CUSTOM_EMOJI["product_games"],
+    "arena": CUSTOM_EMOJI["product_games"],
+    "baloot": CUSTOM_EMOJI["product_games"],
+    "zepeto": CUSTOM_EMOJI["product_games"],
+    "mobile": CUSTOM_EMOJI["product_games"],
+    "league": CUSTOM_EMOJI["product_games"],
 }
 
 LABELS = {
-    # Keep button text clean. The visual icon is sent through icon_custom_emoji_id.
-    # Legacy emoji labels are still accepted in all_labels() for users who already have an old keyboard open.
+    # Reliable ReplyKeyboard: visible emoji in the button text (Product Games removed as requested).
     "en": {
-        "voucher": "Voucher Products", "wallet": "My Wallet", "orders": "My Orders",
-        "gameid": "Game ID", "product_games": "Product Games", "language": "Language",
-        "about": "About", "support": "Support",
+        "voucher": "🛒 Voucher Products", "wallet": "💰 My Wallet", "orders": "📊 My Orders",
+        "gameid": "🆔 Game ID", "product_games": "🎲 Product Games", "language": "🌐 Languages",
+        "about": "ℹ️ About", "support": "☎️ Contact Support",
     },
     "ar": {
-        "voucher": "المنتجات", "wallet": "محفظتي", "orders": "طلباتي",
-        "gameid": "شحن ID", "product_games": "منتجات الألعاب", "language": "اللغة",
-        "about": "حول البوت", "support": "الدعم",
+        "voucher": "🛒 المنتجات", "wallet": "💰 محفظتي", "orders": "📊 طلباتي",
+        "gameid": "🆔 شحن ID", "product_games": "🎲 منتجات الألعاب", "language": "🌐 اللغات",
+        "about": "ℹ️ حول البوت", "support": "☎️ الدعم",
     },
     "ru": {
-        "voucher": "Товары", "wallet": "Кошелёк", "orders": "Заказы",
-        "gameid": "Game ID", "product_games": "Игры", "language": "Язык",
-        "about": "О боте", "support": "Поддержка",
+        "voucher": "🛒 Товары", "wallet": "💰 Кошелёк", "orders": "📊 Заказы",
+        "gameid": "🆔 Game ID", "product_games": "🎲 Игры", "language": "🌐 Языки",
+        "about": "ℹ️ О боте", "support": "☎️ Поддержка",
     },
     "my": {
-        "voucher": "Products", "wallet": "Wallet", "orders": "Orders",
-        "gameid": "Game ID", "product_games": "Games", "language": "Language",
-        "about": "About", "support": "Support",
+        "voucher": "🛒 Products", "wallet": "💰 Wallet", "orders": "📊 Orders",
+        "gameid": "🆔 Game ID", "product_games": "🎲 Games", "language": "🌐 Languages",
+        "about": "ℹ️ About", "support": "☎️ Support",
     },
     "az": {
-        "voucher": "Məhsullar", "wallet": "Pul kisəsi", "orders": "Sifarişlər",
-        "gameid": "Game ID", "product_games": "Oyunlar", "language": "Dil",
-        "about": "Haqqında", "support": "Dəstək",
+        "voucher": "🛒 Məhsullar", "wallet": "💰 Pul kisəsi", "orders": "📊 Sifarişlər",
+        "gameid": "🆔 Game ID", "product_games": "🎲 Oyunlar", "language": "🌐 Dillər",
+        "about": "ℹ️ Haqqında", "support": "☎️ Dəstək",
     },
 }
-
-BUTTON_ICON_IDS = {
-    "voucher": CUSTOM_EMOJI["voucher"],
-    "wallet": CUSTOM_EMOJI["wallet"],
-    "orders": CUSTOM_EMOJI["orders"],
-    "gameid": CUSTOM_EMOJI["game_id"],
-    "product_games": CUSTOM_EMOJI["product_games"],
-    "language": CUSTOM_EMOJI["settings"],
-    "about": CUSTOM_EMOJI["about"],
-    "support": CUSTOM_EMOJI["support"],
-}
-
-LEGACY_BUTTON_EMOJIS = {
-    "voucher": "🎮",
-    "wallet": "👛",
-    "orders": "📊",
-    "gameid": "🔤",
-    "product_games": "🎲",
-    "language": "🌐",
-    "about": "‼️",
-    "support": "⚡",
-}
-
 TEXTS = {
     "en": {
         "start": "Welcome to <b>Prime Topup</b>! 🎮\n\nChoose an option from the menu below.",
@@ -188,11 +198,12 @@ async def tr(user_id: int | None, key: str) -> str:
     return TEXTS.get(lang, TEXTS["en"]).get(key, TEXTS["en"].get(key, key))
 
 def _button_rows(labels: dict[str, str]):
+    # Product Games button removed from the bottom keyboard as requested.
     return [
-        [rk_button(labels["voucher"], BUTTON_ICON_IDS["voucher"]), rk_button(labels["wallet"], BUTTON_ICON_IDS["wallet"])],
-        [rk_button(labels["orders"], BUTTON_ICON_IDS["orders"]), rk_button(labels["gameid"], BUTTON_ICON_IDS["gameid"])],
-        [rk_button(labels["product_games"], BUTTON_ICON_IDS["product_games"]), rk_button(labels["language"], BUTTON_ICON_IDS["language"])],
-        [rk_button(labels["about"], BUTTON_ICON_IDS["about"]), rk_button(labels["support"], BUTTON_ICON_IDS["support"])],
+        [rk_button(labels["voucher"]), rk_button(labels["wallet"])],
+        [rk_button(labels["orders"]), rk_button(labels["gameid"])],
+        [rk_button(labels["language"]), rk_button(labels["about"])],
+        [rk_button(labels["support"])],
     ]
 
 def main_menu_lang(lang: str = "en") -> ReplyKeyboardMarkup:
@@ -208,13 +219,24 @@ def _strip_button_emoji(text: str) -> str:
 
 def all_labels(key: str) -> set[str]:
     # Users send the visible text when pressing a keyboard button.
-    # Accept both the new clean text and old emoji-prefixed button text.
     vals = {v[key] for v in LABELS.values()}
     vals |= {_strip_button_emoji(v) for v in vals}
-    prefix = LEGACY_BUTTON_EMOJIS.get(key)
-    if prefix:
-        vals |= {f"{prefix} {v[key]}" for v in LABELS.values()}
     return vals
+
+def _clean_key(value: str) -> str:
+    return "".join(ch.lower() if ch.isalnum() else "_" for ch in str(value)).strip("_")
+
+def category_icon_id(cat_key: str, title: str | None = None) -> str | None:
+    haystack = f"{cat_key} {title or ''}".lower()
+    haystack_clean = _clean_key(haystack)
+    for key, icon_id in CATEGORY_ICON_IDS.items():
+        if key in haystack or key in haystack_clean:
+            return icon_id
+    return None
+
+def category_style(cat_key: str, title: str | None = None) -> str:
+    # Telegram Bot API button styles: primary = blue, danger = red, success = green.
+    return "primary"
 
 def rk_button(text: str, icon_id: str | None = None) -> KeyboardButton:
     # icon_custom_emoji_id requires recent Bot API / aiogram. If unsupported by the account, Telegram may ignore the icon.
@@ -223,10 +245,12 @@ def rk_button(text: str, icon_id: str | None = None) -> KeyboardButton:
         kwargs["icon_custom_emoji_id"] = icon_id
     return KeyboardButton(**kwargs)
 
-def ik_button(text: str, callback_data: str, icon_id: str | None = None) -> InlineKeyboardButton:
+def ik_button(text: str, callback_data: str, icon_id: str | None = None, style: str | None = None) -> InlineKeyboardButton:
     kwargs = {"text": text, "callback_data": callback_data}
     if icon_id:
         kwargs["icon_custom_emoji_id"] = icon_id
+    if style:
+        kwargs["style"] = style
     return InlineKeyboardButton(**kwargs)
 
 def _patch_keyboards():
@@ -235,18 +259,27 @@ def _patch_keyboards():
         return main_menu_lang("en")
 
     def voucher_categories():
-        rows = [[ik_button(CATEGORIES.get(cat, cat), f"cat:{cat}")] for cat in PARENT_MENUS.get("voucher", [])]
-        rows.append([ik_button("Back", "home")])
+        rows = []
+        for cat in PARENT_MENUS.get("voucher", []):
+            title = CATEGORIES.get(cat, cat)
+            rows.append([ik_button(title, f"cat:{cat}", category_icon_id(cat, title), "primary")])
+        rows.append([ik_button("Back", "home", style="danger")])
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def game_categories():
-        rows = [[ik_button(CATEGORIES.get(cat, cat), f"cat:{cat}")] for cat in PARENT_MENUS.get("gameid", [])]
-        rows.append([ik_button("Back", "home")])
+        rows = []
+        for cat in PARENT_MENUS.get("gameid", []):
+            title = CATEGORIES.get(cat, cat)
+            rows.append([ik_button(title, f"cat:{cat}", category_icon_id(cat, title), "primary")])
+        rows.append([ik_button("Back", "home", style="danger")])
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def subcats(parent: str):
-        rows = [[ik_button(CATEGORIES.get(cat, cat), f"cat:{cat}")] for cat in SUBCATEGORIES.get(parent, [])]
-        rows.append([ik_button("Back", "voucher")])
+        rows = []
+        for cat in SUBCATEGORIES.get(parent, []):
+            title = CATEGORIES.get(cat, cat)
+            rows.append([ik_button(title, f"cat:{cat}", category_icon_id(cat, title), "primary")])
+        rows.append([ik_button("Back", "voucher", style="danger")])
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def products_keyboard(products, parent_back: str):
@@ -255,16 +288,16 @@ def _patch_keyboards():
             price = round(float(r["base_price"]) * float(r["rate"]) / 100, 2)
             title = str(r["title"])
             # clean product button style: no stock, only Available
-            rows.append([ik_button(f"{title} | {price:.2f} USDT | ✅ Available", f"buy:{r['id']}")])
-        rows.append([ik_button("Back", parent_back)])
+            rows.append([ik_button(f"{title} | {price:.2f} USDT | ✅ Available", f"buy:{r['id']}", style="primary")])
+        rows.append([ik_button("Back", parent_back, style="danger")])
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def wallet_keyboard():
         return InlineKeyboardMarkup(inline_keyboard=[
-            [ik_button("USDT BEP20", "pay:BEP20", CUSTOM_EMOJI["wallet"]), ik_button("USDT TRC20", "pay:TRC20", CUSTOM_EMOJI["wallet"])],
-            [ik_button("Bybit ID", "pay:BYBIT", CUSTOM_EMOJI["game_id"])],
-            [ik_button("Transaction History", "txhistory", CUSTOM_EMOJI["orders"])],
-            [ik_button("Back to Menu", "home")],
+            [ik_button("USDT BEP20", "pay:BEP20", CUSTOM_EMOJI["wallet"], "primary"), ik_button("USDT TRC20", "pay:TRC20", CUSTOM_EMOJI["wallet"], "primary")],
+            [ik_button("Bybit ID", "pay:BYBIT", CUSTOM_EMOJI["game_id"], "primary")],
+            [ik_button("Transaction History", "txhistory", CUSTOM_EMOJI["orders"], "success")],
+            [ik_button("Back to Menu", "home", style="danger")],
         ])
 
     def langs_keyboard():
@@ -274,13 +307,13 @@ def _patch_keyboards():
             [ik_button("Русский", "lang:ru", CUSTOM_EMOJI["settings"])],
             [ik_button("မြန်မာ", "lang:my", CUSTOM_EMOJI["settings"])],
             [ik_button("Azərbaycan", "lang:az", CUSTOM_EMOJI["settings"])],
-            [ik_button("Cancel", "home")],
+            [ik_button("Cancel", "home", style="danger")],
         ])
 
     def invoice_keyboard(method: str):
         return InlineKeyboardMarkup(inline_keyboard=[
-            [ik_button("Copy Address", f"copy:{method}")],
-            [ik_button("Cancel", "cancelpay")],
+            [ik_button("Copy Address", f"copy:{method}", style="success")],
+            [ik_button("Cancel", "cancelpay", style="danger")],
         ])
 
     kb.main_menu = main_menu
