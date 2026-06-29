@@ -1,0 +1,32 @@
+# Prime Topup Bot
+
+Telegram bot for Prime Topup using Python + aiogram + SQLite.
+
+## Railway Variables
+
+Add these variables in Railway:
+
+```
+BOT_TOKEN=your token from BotFather
+ADMIN_ID=8573174269
+BOT_USERNAME=@TopupPrimeBot
+SUPPORT_USERNAME=@bot_MD_global
+CHANNEL_URL=https://t.me/MD_WEBSITE
+BEP20_ADDRESS=0x5FA9B715285d6CdC646D43FCc3EfdDAdbBf8Ef72
+TRC20_ADDRESS=TCa2BvRiSqLiuxV4HEh1mtBeeNWu11pYff
+BYBIT_ID=524739312
+DB_PATH=prime_topup.sqlite3
+```
+
+No PostgreSQL is required. The bot uses SQLite.
+
+## Run locally
+
+```
+pip install -r requirements.txt
+python main.py
+```
+
+## Admin
+
+Use `/admin` from the admin account to see the admin commands.
