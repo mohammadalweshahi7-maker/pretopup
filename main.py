@@ -56,30 +56,32 @@ CUSTOM_EMOJI = {
 }
 
 LABELS = {
+    # The emoji is part of the button text. This is the reliable Telegram ReplyKeyboard method.
+    # Telegram custom_emoji_id is kept in messages/inline buttons when supported, but ReplyKeyboard can ignore it on many clients/bot API setups.
     "en": {
-        "voucher": "Voucher Products", "wallet": "My Wallet", "orders": "My Orders",
-        "gameid": "Game ID", "product_games": "Product Games", "language": "Language",
-        "about": "About", "support": "Support",
+        "voucher": "🎮 Voucher Products", "wallet": "👛 My Wallet", "orders": "📊 My Orders",
+        "gameid": "🔤 Game ID", "product_games": "🎲 Product Games", "language": "🌐 Language",
+        "about": "‼️ About", "support": "⚡ Support",
     },
     "ar": {
-        "voucher": "المنتجات", "wallet": "محفظتي", "orders": "طلباتي",
-        "gameid": "شحن ID", "product_games": "منتجات الألعاب", "language": "اللغة",
-        "about": "حول البوت", "support": "الدعم",
+        "voucher": "🎮 المنتجات", "wallet": "👛 محفظتي", "orders": "📊 طلباتي",
+        "gameid": "🔤 شحن ID", "product_games": "🎲 منتجات الألعاب", "language": "🌐 اللغة",
+        "about": "‼️ حول البوت", "support": "⚡ الدعم",
     },
     "ru": {
-        "voucher": "Товары", "wallet": "Кошелёк", "orders": "Заказы",
-        "gameid": "Game ID", "product_games": "Игры", "language": "Язык",
-        "about": "О боте", "support": "Поддержка",
+        "voucher": "🎮 Товары", "wallet": "👛 Кошелёк", "orders": "📊 Заказы",
+        "gameid": "🔤 Game ID", "product_games": "🎲 Игры", "language": "🌐 Язык",
+        "about": "‼️ О боте", "support": "⚡ Поддержка",
     },
     "my": {
-        "voucher": "Products", "wallet": "Wallet", "orders": "Orders",
-        "gameid": "Game ID", "product_games": "Games", "language": "Language",
-        "about": "About", "support": "Support",
+        "voucher": "🎮 Products", "wallet": "👛 Wallet", "orders": "📊 Orders",
+        "gameid": "🔤 Game ID", "product_games": "🎲 Games", "language": "🌐 Language",
+        "about": "‼️ About", "support": "⚡ Support",
     },
     "az": {
-        "voucher": "Məhsullar", "wallet": "Pul kisəsi", "orders": "Sifarişlər",
-        "gameid": "Game ID", "product_games": "Oyunlar", "language": "Dil",
-        "about": "Haqqında", "support": "Dəstək",
+        "voucher": "🎮 Məhsullar", "wallet": "👛 Pul kisəsi", "orders": "📊 Sifarişlər",
+        "gameid": "🔤 Game ID", "product_games": "🎲 Oyunlar", "language": "🌐 Dil",
+        "about": "‼️ Haqqında", "support": "⚡ Dəstək",
     },
 }
 
@@ -165,19 +167,28 @@ async def tr(user_id: int | None, key: str) -> str:
 
 def _button_rows(labels: dict[str, str]):
     return [
-        [rk_button(labels["voucher"], CUSTOM_EMOJI["voucher"]), rk_button(labels["wallet"], CUSTOM_EMOJI["wallet"])],
-        [rk_button(labels["orders"], CUSTOM_EMOJI["orders"]), rk_button(labels["gameid"], CUSTOM_EMOJI["game_id"])],
-        [rk_button(labels["product_games"], CUSTOM_EMOJI["product_games"]), rk_button(labels["language"], CUSTOM_EMOJI["settings"])],
-        [rk_button(labels["about"], CUSTOM_EMOJI["about"]), rk_button(labels["support"], CUSTOM_EMOJI["support"])],
+        [rk_button(labels["voucher"]), rk_button(labels["wallet"])],
+        [rk_button(labels["orders"]), rk_button(labels["gameid"])],
+        [rk_button(labels["product_games"]), rk_button(labels["language"])],
+        [rk_button(labels["about"]), rk_button(labels["support"])],
     ]
 
 def main_menu_lang(lang: str = "en") -> ReplyKeyboardMarkup:
     labels = LABELS.get(lang, LABELS["en"])
     return ReplyKeyboardMarkup(keyboard=_button_rows(labels), resize_keyboard=True)
 
+def _strip_button_emoji(text: str) -> str:
+    # Accept old and new keyboard labels. This removes the leading emoji + space only.
+    parts = text.split(" ", 1)
+    if len(parts) == 2 and not parts[0].isalnum():
+        return parts[1]
+    return text
+
 def all_labels(key: str) -> set[str]:
-    # Users send only the text field when pressing a keyboard button.
-    return {v[key] for v in LABELS.values()}
+    # Users send the visible text when pressing a keyboard button.
+    vals = {v[key] for v in LABELS.values()}
+    vals |= {_strip_button_emoji(v) for v in vals}
+    return vals
 
 def rk_button(text: str, icon_id: str | None = None) -> KeyboardButton:
     # icon_custom_emoji_id requires recent Bot API / aiogram. If unsupported by the account, Telegram may ignore the icon.
