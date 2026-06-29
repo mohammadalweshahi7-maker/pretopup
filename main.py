@@ -14,7 +14,7 @@ from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, FSInputFile, Message
+from aiogram.types import CallbackQuery, FSInputFile, Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
 
 from catalog import CATEGORIES, PARENT_MENUS, SUBCATEGORIES, FIXED_RATE_CATEGORIES
@@ -39,6 +39,210 @@ pending_products: dict[int, str] = {}
 pending_pay_method: dict[int, str] = {}
 
 BOT: Bot | None = None
+
+# ---------------- Prime Topup UI, custom icons, and translations ----------------
+# Telegram Bot API does not support custom_emoji_id entities inside keyboard button text.
+# Custom emoji IDs are used in message text via <tg-emoji>; keyboard buttons use closest normal emoji.
+CUSTOM_EMOJI = {
+    "voucher": "5987568986290657784",
+    "wallet": "5276137490846075469",
+    "orders": "6093382540784046658",
+    "game_id": "5303466028448127877",
+    "settings": "5366231924597604153",
+    "product_games": "5235606515833909907",
+    "about": "5303162314130758043",
+    "support": "5852800639188341430",
+    "balance": "5388622778817589921",
+}
+
+LABELS = {
+    "en": {
+        "voucher": "🎮 Voucher Products", "wallet": "👛 My Wallet", "orders": "📊 My Orders",
+        "gameid": "🔤 Game ID", "product_games": "🎲 Product Games", "language": "🌐 Language",
+        "about": "‼️ About", "support": "⚡ Support",
+    },
+    "ar": {
+        "voucher": "🎮 المنتجات", "wallet": "👛 محفظتي", "orders": "📊 طلباتي",
+        "gameid": "🔤 شحن ID", "product_games": "🎲 منتجات الألعاب", "language": "🌐 اللغة",
+        "about": "‼️ حول البوت", "support": "⚡ الدعم",
+    },
+    "ru": {
+        "voucher": "🎮 Товары", "wallet": "👛 Кошелёк", "orders": "📊 Заказы",
+        "gameid": "🔤 Game ID", "product_games": "🎲 Игры", "language": "🌐 Язык",
+        "about": "‼️ О боте", "support": "⚡ Поддержка",
+    },
+    "my": {
+        "voucher": "🎮 Products", "wallet": "👛 Wallet", "orders": "📊 Orders",
+        "gameid": "🔤 Game ID", "product_games": "🎲 Games", "language": "🌐 Language",
+        "about": "‼️ About", "support": "⚡ Support",
+    },
+    "az": {
+        "voucher": "🎮 Məhsullar", "wallet": "👛 Pul kisəsi", "orders": "📊 Sifarişlər",
+        "gameid": "🔤 Game ID", "product_games": "🎲 Oyunlar", "language": "🌐 Dil",
+        "about": "‼️ Haqqında", "support": "⚡ Dəstək",
+    },
+}
+
+TEXTS = {
+    "en": {
+        "start": "🏢 <b>Welcome to Prime Topup!</b>\n\n🌴 Explore our products, check your orders, and get the best deals right here.\nHello, <b>{name}</b>! How can I assist you today?\n\n⚪ Choose an option below to get started.",
+        "voucher_title": "Voucher Products\n\n📂 Select Category:\n✨ 📊 Select one:",
+        "game_title": "Select Topup Game:\n\nTotal active game categories found. Select one:",
+        "choose_lang": "🌐 Choose Language",
+        "lang_saved": "✅ Language saved.",
+        "no_orders": "📦 You have no orders yet.",
+        "generic": "Please choose an option from the menu.",
+        "support_sent": "✅ Your message has been sent to support.",
+        "no_balance": "❌ You do not have enough balance. Please top up your wallet.",
+        "processing": "⏳ Your order is being processed. You'll be notified once it's complete.",
+    },
+    "ar": {
+        "start": "🏢 <b>مرحباً بك في Prime Topup!</b>\n\n🌴 تصفح المنتجات، تابع طلباتك، واحصل على أفضل العروض هنا.\nأهلاً <b>{name}</b>! كيف يمكنني مساعدتك اليوم؟\n\n⚪ اختر خياراً من القائمة بالأسفل للبدء.",
+        "voucher_title": "منتجات البطاقات\n\n📂 اختر القسم:\n✨ 📊 اختر واحداً:",
+        "game_title": "اختر لعبة الشحن:\n\nتم العثور على أقسام شحن نشطة. اختر واحداً:",
+        "choose_lang": "🌐 اختر اللغة",
+        "lang_saved": "✅ تم حفظ اللغة.",
+        "no_orders": "📦 لا يوجد لديك طلبات حتى الآن.",
+        "generic": "يرجى اختيار خيار من القائمة.",
+        "support_sent": "✅ تم إرسال رسالتك للدعم.",
+        "no_balance": "❌ ليس لديك رصيد كافٍ. يرجى شحن محفظتك أولاً.",
+        "processing": "⏳ طلبك قيد المعالجة. سيتم إشعارك عند اكتماله.",
+    },
+    "ru": {
+        "start": "🏢 <b>Добро пожаловать в Prime Topup!</b>\n\n🌴 Смотрите товары, проверяйте заказы и получайте лучшие предложения.\nЗдравствуйте, <b>{name}</b>! Чем могу помочь?\n\n⚪ Выберите пункт ниже.",
+        "voucher_title": "Цифровые товары\n\n📂 Выберите категорию:\n✨ 📊 Выберите один вариант:",
+        "game_title": "Выберите игру для пополнения:\n\nНайдены активные категории. Выберите одну:",
+        "choose_lang": "🌐 Выберите язык",
+        "lang_saved": "✅ Язык сохранён.",
+        "no_orders": "📦 У вас пока нет заказов.",
+        "generic": "Пожалуйста, выберите пункт меню.",
+        "support_sent": "✅ Ваше сообщение отправлено в поддержку.",
+        "no_balance": "❌ Недостаточно средств. Пополните кошелёк.",
+        "processing": "⏳ Ваш заказ обрабатывается. Мы уведомим вас после завершения.",
+    },
+    "my": {
+        "start": "🏢 <b>Prime Topup မှ ကြိုဆိုပါတယ်!</b>\n\n🌴 Products ကြည့်ပါ၊ orders စစ်ပါ၊ အကောင်းဆုံး deals ရယူပါ။\nHello, <b>{name}</b>! ဘာကူညီရမလဲ?\n\n⚪ အောက်ပါ menu မှရွေးချယ်ပါ။",
+        "voucher_title": "Voucher Products\n\n📂 Category ရွေးပါ:\n✨ 📊 တစ်ခုရွေးပါ:",
+        "game_title": "Topup Game ရွေးပါ:\n\nActive categories တွေ့ရှိပါသည်။ တစ်ခုရွေးပါ:",
+        "choose_lang": "🌐 Language ရွေးပါ",
+        "lang_saved": "✅ Language saved.",
+        "no_orders": "📦 Orders မရှိသေးပါ။",
+        "generic": "Menu မှရွေးချယ်ပါ။",
+        "support_sent": "✅ Support သို့ပို့ပြီးပါပြီ။",
+        "no_balance": "❌ Balance မလုံလောက်ပါ။ Wallet ကို top up လုပ်ပါ။",
+        "processing": "⏳ Your order is being processed. You'll be notified once it's complete.",
+    },
+    "az": {
+        "start": "🏢 <b>Prime Topup-a xoş gəlmisiniz!</b>\n\n🌴 Məhsulları araşdırın, sifarişlərinizi yoxlayın və ən yaxşı təklifləri əldə edin.\nSalam, <b>{name}</b>! Sizə necə kömək edə bilərəm?\n\n⚪ Başlamaq üçün aşağıdan seçim edin.",
+        "voucher_title": "Voucher Products\n\n📂 Kateqoriya seçin:\n✨ 📊 Birini seçin:",
+        "game_title": "Topup oyununu seçin:\n\nAktiv kateqoriyalar tapıldı. Birini seçin:",
+        "choose_lang": "🌐 Dil seçin",
+        "lang_saved": "✅ Dil yadda saxlanıldı.",
+        "no_orders": "📦 Hələ sifarişiniz yoxdur.",
+        "generic": "Zəhmət olmasa menyudan seçim edin.",
+        "support_sent": "✅ Mesajınız dəstəyə göndərildi.",
+        "no_balance": "❌ Balansınız kifayət deyil. Zəhmət olmasa cüzdanınızı artırın.",
+        "processing": "⏳ Sifarişiniz emal olunur. Tamamlandıqda sizə bildiriləcək.",
+    },
+}
+
+def icon(name: str, fallback: str) -> str:
+    return f'<tg-emoji emoji-id="{CUSTOM_EMOJI[name]}">{fallback}</tg-emoji>'
+
+async def get_lang(user_id: int | None) -> str:
+    if not user_id:
+        return "en"
+    try:
+        u = await db.get_user(user_id)
+        lang = (u["language"] if u and u["language"] else "en")
+        return lang if lang in TEXTS else "en"
+    except Exception:
+        return "en"
+
+async def tr(user_id: int | None, key: str) -> str:
+    lang = await get_lang(user_id)
+    return TEXTS.get(lang, TEXTS["en"]).get(key, TEXTS["en"].get(key, key))
+
+def _button_rows(labels: dict[str, str]):
+    return [
+        [KeyboardButton(text=labels["voucher"]), KeyboardButton(text=labels["wallet"])],
+        [KeyboardButton(text=labels["orders"]), KeyboardButton(text=labels["gameid"])],
+        [KeyboardButton(text=labels["product_games"]), KeyboardButton(text=labels["language"])],
+        [KeyboardButton(text=labels["about"]), KeyboardButton(text=labels["support"])],
+    ]
+
+def main_menu_lang(lang: str = "en") -> ReplyKeyboardMarkup:
+    labels = LABELS.get(lang, LABELS["en"])
+    return ReplyKeyboardMarkup(keyboard=_button_rows(labels), resize_keyboard=True)
+
+def all_labels(key: str) -> set[str]:
+    return {v[key] for v in LABELS.values()}
+
+def _patch_keyboards():
+    def main_menu():
+        # default menu; translated menu is sent after language changes
+        return main_menu_lang("en")
+
+    def voucher_categories():
+        rows = [[InlineKeyboardButton(text=CATEGORIES.get(cat, cat), callback_data=f"cat:{cat}")] for cat in PARENT_MENUS.get("voucher", [])]
+        rows.append([InlineKeyboardButton(text="⬅️ Back", callback_data="home")])
+        return InlineKeyboardMarkup(inline_keyboard=rows)
+
+    def game_categories():
+        rows = [[InlineKeyboardButton(text=CATEGORIES.get(cat, cat), callback_data=f"cat:{cat}")] for cat in PARENT_MENUS.get("gameid", [])]
+        rows.append([InlineKeyboardButton(text="⬅️ Back", callback_data="home")])
+        return InlineKeyboardMarkup(inline_keyboard=rows)
+
+    def subcats(parent: str):
+        rows = [[InlineKeyboardButton(text=CATEGORIES.get(cat, cat), callback_data=f"cat:{cat}")] for cat in SUBCATEGORIES.get(parent, [])]
+        rows.append([InlineKeyboardButton(text="⬅️ Back", callback_data="voucher")])
+        return InlineKeyboardMarkup(inline_keyboard=rows)
+
+    def products_keyboard(products, parent_back: str):
+        rows = []
+        for r in products:
+            price = round(float(r["base_price"]) * float(r["rate"]) / 100, 2)
+            title = str(r["title"])
+            # clean product button style: no stock, only Available
+            rows.append([InlineKeyboardButton(text=f"{title} | {price:.2f} USDT | ✅ Available", callback_data=f"buy:{r['id']}")])
+        rows.append([InlineKeyboardButton(text="⬅️ Back", callback_data=parent_back)])
+        return InlineKeyboardMarkup(inline_keyboard=rows)
+
+    def wallet_keyboard():
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="USDT BEP20", callback_data="pay:BEP20"), InlineKeyboardButton(text="USDT TRC20", callback_data="pay:TRC20")],
+            [InlineKeyboardButton(text="Bybit ID", callback_data="pay:BYBIT")],
+            [InlineKeyboardButton(text="📊 📝 Transaction History", callback_data="txhistory")],
+            [InlineKeyboardButton(text="⬅️ Back to Menu", callback_data="home")],
+        ])
+
+    def langs_keyboard():
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🇸🇦 العربية", callback_data="lang:ar")],
+            [InlineKeyboardButton(text="🇺🇸 English", callback_data="lang:en")],
+            [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")],
+            [InlineKeyboardButton(text="🇲🇲 မြန်မာ", callback_data="lang:my")],
+            [InlineKeyboardButton(text="🇦🇿 Azərbaycan", callback_data="lang:az")],
+            [InlineKeyboardButton(text="❌ Cancel", callback_data="home")],
+        ])
+
+    def invoice_keyboard(method: str):
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📋 Copy Address", callback_data=f"copy:{method}")],
+            [InlineKeyboardButton(text="❌ Cancel", callback_data="cancelpay")],
+        ])
+
+    kb.main_menu = main_menu
+    kb.voucher_categories = voucher_categories
+    kb.game_categories = game_categories
+    kb.subcats = subcats
+    kb.products_keyboard = products_keyboard
+    kb.wallet_keyboard = wallet_keyboard
+    kb.langs_keyboard = langs_keyboard
+    kb.invoice_keyboard = invoice_keyboard
+
+_patch_keyboards()
+
 
 def admin_only(message: Message) -> bool:
     return message.from_user and message.from_user.id == config.admin_id
@@ -70,22 +274,20 @@ async def user_guard(message: Message) -> bool:
 @router.message(CommandStart())
 async def start(message: Message):
     if not await user_guard(message): return
-    await message.answer(
-        "Welcome to Prime Topup! 🎮\n\nChoose an option from the menu below.",
-        reply_markup=kb.main_menu()
-    )
+    lang = await get_lang(message.from_user.id)
+    await message.answer((await tr(message.from_user.id, "start")).format(name=message.from_user.first_name or "User"), reply_markup=main_menu_lang(lang))
 
-@router.message(F.text == "🎮 Voucher Products")
+@router.message(F.text.in_(all_labels("voucher")))
 async def voucher(message: Message):
     if not await user_guard(message): return
-    await message.answer("Voucher Products\n\n📂 Select Category:\n✨ 📊 Select one:", reply_markup=kb.voucher_categories())
+    await message.answer(await tr(message.from_user.id, "voucher_title"), reply_markup=kb.voucher_categories())
 
-@router.message(F.text == "🔤 Game ID")
+@router.message(F.text.in_(all_labels("gameid")))
 async def game_id(message: Message):
     if not await user_guard(message): return
-    await message.answer("Select Topup Game:\n\nTotal active game categories found. Select one:", reply_markup=kb.game_categories())
+    await message.answer(await tr(message.from_user.id, "game_title"), reply_markup=kb.game_categories())
 
-@router.message(F.text == "👛 My Wallet")
+@router.message(F.text.in_(all_labels("wallet")))
 async def wallet(message: Message):
     if not await user_guard(message): return
     u = await db.get_user(message.from_user.id)
@@ -103,12 +305,12 @@ async def wallet(message: Message):
     )
     await message.answer(text, reply_markup=kb.wallet_keyboard())
 
-@router.message(F.text == "📊 My Orders")
+@router.message(F.text.in_(all_labels("orders")))
 async def my_orders(message: Message):
     if not await user_guard(message): return
     rows = await db.recent_orders(message.from_user.id)
     if not rows:
-        await message.answer("📦 You have no orders yet.")
+        await message.answer(await tr(message.from_user.id, "no_orders"))
         return
     text = "📦 <b>My Orders</b>\n\n" + "\n\n".join(
         f"#{r['id']} | {r['title']}\n💰 {float(r['price']):.2f} USDT | {r['status']}\n📅 {r['created_at'].strftime('%d.%m.%Y %H:%M')}"
@@ -116,24 +318,93 @@ async def my_orders(message: Message):
     )
     await message.answer(text)
 
-@router.message(F.text == "🌐 Language")
+@router.message(F.text.in_(all_labels("language")))
 async def language(message: Message):
     if not await user_guard(message): return
-    await message.answer("🌐 اختر اللغة / Choose Language", reply_markup=kb.langs_keyboard())
+    await message.answer(await tr(message.from_user.id, "choose_lang"), reply_markup=kb.langs_keyboard())
 
-@router.message(F.text == "‼️ About")
+@router.message(F.text.in_(all_labels("about")))
 async def about(message: Message):
-    await message.answer(
-        "‼️ <b>About Prime Topup</b>\n\n"
-        "Prime Topup provides game top-ups and digital gift cards.\n\n"
-        "✅ Codes are original and valid for storage up to 1 year.\n"
-        "✅ Orders are processed fast.\n"
-        "✅ Top up your wallet using USDT BEP20, USDT TRC20, or Bybit.\n"
-        "✅ Use your wallet balance to place orders.\n\n"
-        "For help, contact Support."
-    )
+    lang = await get_lang(message.from_user.id if message.from_user else None)
+    about_texts = {
+        "en": f"""{icon("about", "‼️")} <b>About Prime Topup</b>
 
-@router.message(F.text == "⚡ Support")
+Prime Topup is a digital service for game top-ups and digital gift cards.
+
+✅ Original codes and trusted products.
+✅ Many codes are valid for storage up to 1 year.
+✅ Fast order processing after payment or wallet balance purchase.
+✅ Wallet top-up by USDT BEP20, USDT TRC20, or Bybit ID.
+✅ Simple order tracking through My Orders.
+✅ Multi-language support: Arabic, English, Russian, Myanmar, and Azerbaijani.
+
+How it works:
+1) Top up your wallet.
+2) Choose a product or Game ID recharge.
+3) Send the required player/account ID if needed.
+4) Your order will be processed and you will be notified once complete.
+
+Need help? Contact Support anytime.
+Support: {config.support_username}
+Channel: {config.channel_url}""",
+        "ar": f"""{icon("about", "‼️")} <b>حول Prime Topup</b>
+
+Prime Topup هو بوت مخصص لشحن الألعاب وبيع البطاقات الرقمية بطريقة سهلة وآمنة.
+
+✅ الأكواد أصلية والمنتجات موثوقة.
+✅ الكثير من الأكواد صالحة للتخزين لمدة تصل إلى سنة.
+✅ معالجة سريعة للطلبات بعد الدفع أو الشراء من رصيد المحفظة.
+✅ يمكنك شحن المحفظة عبر USDT BEP20 أو USDT TRC20 أو Bybit ID.
+✅ يمكنك متابعة طلباتك من قسم My Orders.
+✅ يدعم عدة لغات: العربية، الإنجليزية، الروسية، الميانمارية، والأذربيجانية.
+
+طريقة الاستخدام:
+1) اشحن محفظتك.
+2) اختر المنتج أو شحن Game ID.
+3) أرسل ID اللاعب أو الحساب إذا كان مطلوباً.
+4) سيتم معالجة الطلب وإشعارك عند اكتماله.
+
+لأي مساعدة تواصل مع الدعم في أي وقت.
+الدعم: {config.support_username}
+القناة: {config.channel_url}""",
+        "ru": f"""{icon("about", "‼️")} <b>О Prime Topup</b>
+
+Prime Topup — бот для пополнения игр и покупки цифровых подарочных карт.
+
+✅ Оригинальные коды и проверенные товары.
+✅ Многие коды можно хранить до 1 года.
+✅ Быстрая обработка заказов.
+✅ Пополнение баланса через USDT BEP20, USDT TRC20 или Bybit ID.
+✅ Проверка заказов в разделе My Orders.
+
+Поддержка: {config.support_username}
+Канал: {config.channel_url}""",
+        "my": f"""{icon("about", "‼️")} <b>About Prime Topup</b>
+
+Prime Topup သည် game top-up နှင့် digital gift cards အတွက် bot ဖြစ်သည်။
+
+✅ Original codes and trusted products.
+✅ Codes can be stored up to 1 year for many products.
+✅ Fast order processing.
+✅ Wallet top-up with USDT BEP20, USDT TRC20, or Bybit ID.
+
+Support: {config.support_username}
+Channel: {config.channel_url}""",
+        "az": f"""{icon("about", "‼️")} <b>Prime Topup haqqında</b>
+
+Prime Topup oyun yükləmələri və rəqəmsal hədiyyə kartları üçün botdur.
+
+✅ Orijinal kodlar və etibarlı məhsullar.
+✅ Bir çox kod 1 ilə qədər saxlanıla bilər.
+✅ Sürətli sifariş emalı.
+✅ USDT BEP20, USDT TRC20 və ya Bybit ID ilə balans artırma.
+
+Dəstək: {config.support_username}
+Kanal: {config.channel_url}""",
+    }
+    await message.answer(about_texts.get(lang, about_texts["en"]))
+
+@router.message(F.text.in_(all_labels("support")))
 async def support(message: Message, state: FSMContext):
     await message.answer(
         f"📞 <b>Contact Support</b>\n\n"
@@ -148,17 +419,18 @@ async def support_msg(message: Message, state: FSMContext):
     await notify_admin(
         f"📩 Support message\nFrom: <code>{message.from_user.id}</code> @{message.from_user.username or '-'}\n\n{message.text or '[non-text message]'}"
     )
-    await message.answer("✅ Your message has been sent to support.")
+    await message.answer(await tr(message.from_user.id, "support_sent"))
     await state.clear()
 
 @router.callback_query(F.data == "home")
 async def cb_home(call: CallbackQuery):
-    await call.message.answer("Main menu", reply_markup=kb.main_menu())
+    lang = await get_lang(call.from_user.id)
+    await call.message.answer("🏠 Main Menu", reply_markup=main_menu_lang(lang))
     await call.answer()
 
 @router.callback_query(F.data == "voucher")
 async def cb_voucher(call: CallbackQuery):
-    await call.message.edit_text("Voucher Products\n\n📂 Select Category:\n✨ 📊 Select one:", reply_markup=kb.voucher_categories())
+    await call.message.edit_text(await tr(call.from_user.id, "voucher_title"), reply_markup=kb.voucher_categories())
     await call.answer()
 
 @router.callback_query(F.data.startswith("cat:"))
@@ -181,7 +453,7 @@ async def cb_category(call: CallbackQuery):
 
 @router.callback_query(F.data == "gameid")
 async def cb_gameid(call: CallbackQuery):
-    await call.message.edit_text("Select Topup Game:\n\nTotal active game categories found. Select one:", reply_markup=kb.game_categories())
+    await call.message.edit_text(await tr(call.from_user.id, "game_title"), reply_markup=kb.game_categories())
     await call.answer()
 
 @router.callback_query(F.data.startswith("buy:"))
@@ -198,11 +470,11 @@ async def cb_buy(call: CallbackQuery, state: FSMContext):
     else:
         order = await db.create_order(call.from_user.id, product_id, product["title"], price)
         if not order:
-            await call.message.answer("❌ You do not have enough balance. Please top up your wallet.")
+            await call.message.answer(await tr(call.from_user.id, "no_balance"))
         elif isinstance(order, dict) and order.get("error") == "MIN":
             await call.message.answer(f"❌ Minimum purchase amount: {float(order['minimum']):.2f} USDT")
         else:
-            await call.message.answer("⏳ Your order is being processed. You'll be notified once it's complete.")
+            await call.message.answer(await tr(call.from_user.id, "processing"))
             await notify_admin(
                 f"🆕 New voucher order\n"
                 f"Order: #{order['id']}\nUser: <code>{call.from_user.id}</code> @{call.from_user.username or '-'}\n"
@@ -219,11 +491,11 @@ async def got_game_id(message: Message, state: FSMContext):
     price = round(float(product["base_price"]) * float(product["rate"]) / 100, 2)
     order = await db.create_order(message.from_user.id, product_id, product["title"], price, message.text.strip())
     if not order:
-        await message.answer("❌ You do not have enough balance. Please top up your wallet.")
+        await message.answer(await tr(message.from_user.id, "no_balance"))
     elif isinstance(order, dict) and order.get("error") == "MIN":
         await message.answer(f"❌ Minimum purchase amount: {float(order['minimum']):.2f} USDT")
     else:
-        await message.answer("⏳ Your order is being processed. You'll be notified once it's complete.")
+        await message.answer(await tr(message.from_user.id, "processing"))
         await notify_admin(
             f"🆕 New Game ID order\n"
             f"Order: #{order['id']}\nUser: <code>{message.from_user.id}</code> @{message.from_user.username or '-'}\n"
@@ -315,7 +587,7 @@ async def txhistory(call: CallbackQuery):
 async def set_lang(call: CallbackQuery):
     lang = call.data.split(":",1)[1]
     await db.execute("UPDATE users SET language=$2 WHERE id=$1", call.from_user.id, lang)
-    await call.message.answer("✅ Language saved.")
+    await call.message.answer(await tr(call.from_user.id, "lang_saved"), reply_markup=main_menu_lang(lang))
     await call.answer()
 
 # Admin commands
@@ -574,7 +846,8 @@ async def any_message(message: Message):
     if not await user_guard(message): return
     if message.from_user.id != config.admin_id:
         await notify_admin(f"💬 User message\nFrom: <code>{message.from_user.id}</code> @{message.from_user.username or '-'}\n\n{message.text or '[non-text message]'}")
-    await message.answer("Please choose an option from the menu.", reply_markup=kb.main_menu())
+    lang = await get_lang(message.from_user.id)
+    await message.answer(await tr(message.from_user.id, "generic"), reply_markup=main_menu_lang(lang))
 
 ADMIN_HELP = """<b>MD STORE Admin Panel</b>
 
