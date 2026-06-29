@@ -41,8 +41,8 @@ pending_pay_method: dict[int, str] = {}
 BOT: Bot | None = None
 
 # ---------------- Prime Topup UI, custom icons, and translations ----------------
-# Telegram Bot API does not support custom_emoji_id entities inside keyboard button text.
-# Custom emoji IDs are used in message text via <tg-emoji>; keyboard buttons use closest normal emoji.
+# Telegram Bot API supports icon_custom_emoji_id for ReplyKeyboard and InlineKeyboard buttons in recent Bot API versions.
+# Keep the visible button text clean; Telegram shows the custom emoji before the text when the bot/account is eligible.
 CUSTOM_EMOJI = {
     "voucher": "5987568986290657784",
     "wallet": "5276137490846075469",
@@ -57,35 +57,35 @@ CUSTOM_EMOJI = {
 
 LABELS = {
     "en": {
-        "voucher": "🎮 Voucher Products", "wallet": "👛 My Wallet", "orders": "📊 My Orders",
-        "gameid": "🔤 Game ID", "product_games": "🎲 Product Games", "language": "🌐 Language",
-        "about": "‼️ About", "support": "⚡ Support",
+        "voucher": "Voucher Products", "wallet": "My Wallet", "orders": "My Orders",
+        "gameid": "Game ID", "product_games": "Product Games", "language": "Language",
+        "about": "About", "support": "Support",
     },
     "ar": {
-        "voucher": "🎮 المنتجات", "wallet": "👛 محفظتي", "orders": "📊 طلباتي",
-        "gameid": "🔤 شحن ID", "product_games": "🎲 منتجات الألعاب", "language": "🌐 اللغة",
-        "about": "‼️ حول البوت", "support": "⚡ الدعم",
+        "voucher": "المنتجات", "wallet": "محفظتي", "orders": "طلباتي",
+        "gameid": "شحن ID", "product_games": "منتجات الألعاب", "language": "اللغة",
+        "about": "حول البوت", "support": "الدعم",
     },
     "ru": {
-        "voucher": "🎮 Товары", "wallet": "👛 Кошелёк", "orders": "📊 Заказы",
-        "gameid": "🔤 Game ID", "product_games": "🎲 Игры", "language": "🌐 Язык",
-        "about": "‼️ О боте", "support": "⚡ Поддержка",
+        "voucher": "Товары", "wallet": "Кошелёк", "orders": "Заказы",
+        "gameid": "Game ID", "product_games": "Игры", "language": "Язык",
+        "about": "О боте", "support": "Поддержка",
     },
     "my": {
-        "voucher": "🎮 Products", "wallet": "👛 Wallet", "orders": "📊 Orders",
-        "gameid": "🔤 Game ID", "product_games": "🎲 Games", "language": "🌐 Language",
-        "about": "‼️ About", "support": "⚡ Support",
+        "voucher": "Products", "wallet": "Wallet", "orders": "Orders",
+        "gameid": "Game ID", "product_games": "Games", "language": "Language",
+        "about": "About", "support": "Support",
     },
     "az": {
-        "voucher": "🎮 Məhsullar", "wallet": "👛 Pul kisəsi", "orders": "📊 Sifarişlər",
-        "gameid": "🔤 Game ID", "product_games": "🎲 Oyunlar", "language": "🌐 Dil",
-        "about": "‼️ Haqqında", "support": "⚡ Dəstək",
+        "voucher": "Məhsullar", "wallet": "Pul kisəsi", "orders": "Sifarişlər",
+        "gameid": "Game ID", "product_games": "Oyunlar", "language": "Dil",
+        "about": "Haqqında", "support": "Dəstək",
     },
 }
 
 TEXTS = {
     "en": {
-        "start": "🏢 <b>Welcome to Prime Topup!</b>\n\n🌴 Explore our products, check your orders, and get the best deals right here.\nHello, <b>{name}</b>! How can I assist you today?\n\n⚪ Choose an option below to get started.",
+        "start": "Welcome to <b>Prime Topup</b>! 🎮\n\nChoose an option from the menu below.",
         "voucher_title": "Voucher Products\n\n📂 Select Category:\n✨ 📊 Select one:",
         "game_title": "Select Topup Game:\n\nTotal active game categories found. Select one:",
         "choose_lang": "🌐 Choose Language",
@@ -97,7 +97,7 @@ TEXTS = {
         "processing": "⏳ Your order is being processed. You'll be notified once it's complete.",
     },
     "ar": {
-        "start": "🏢 <b>مرحباً بك في Prime Topup!</b>\n\n🌴 تصفح المنتجات، تابع طلباتك، واحصل على أفضل العروض هنا.\nأهلاً <b>{name}</b>! كيف يمكنني مساعدتك اليوم؟\n\n⚪ اختر خياراً من القائمة بالأسفل للبدء.",
+        "start": "مرحباً بك في <b>Prime Topup</b>! 🎮\n\nاختر خياراً من القائمة بالأسفل.",
         "voucher_title": "منتجات البطاقات\n\n📂 اختر القسم:\n✨ 📊 اختر واحداً:",
         "game_title": "اختر لعبة الشحن:\n\nتم العثور على أقسام شحن نشطة. اختر واحداً:",
         "choose_lang": "🌐 اختر اللغة",
@@ -109,7 +109,7 @@ TEXTS = {
         "processing": "⏳ طلبك قيد المعالجة. سيتم إشعارك عند اكتماله.",
     },
     "ru": {
-        "start": "🏢 <b>Добро пожаловать в Prime Topup!</b>\n\n🌴 Смотрите товары, проверяйте заказы и получайте лучшие предложения.\nЗдравствуйте, <b>{name}</b>! Чем могу помочь?\n\n⚪ Выберите пункт ниже.",
+        "start": "Добро пожаловать в <b>Prime Topup</b>! 🎮\n\nВыберите пункт в меню ниже.",
         "voucher_title": "Цифровые товары\n\n📂 Выберите категорию:\n✨ 📊 Выберите один вариант:",
         "game_title": "Выберите игру для пополнения:\n\nНайдены активные категории. Выберите одну:",
         "choose_lang": "🌐 Выберите язык",
@@ -121,7 +121,7 @@ TEXTS = {
         "processing": "⏳ Ваш заказ обрабатывается. Мы уведомим вас после завершения.",
     },
     "my": {
-        "start": "🏢 <b>Prime Topup မှ ကြိုဆိုပါတယ်!</b>\n\n🌴 Products ကြည့်ပါ၊ orders စစ်ပါ၊ အကောင်းဆုံး deals ရယူပါ။\nHello, <b>{name}</b>! ဘာကူညီရမလဲ?\n\n⚪ အောက်ပါ menu မှရွေးချယ်ပါ။",
+        "start": "<b>Prime Topup</b> မှ ကြိုဆိုပါတယ်! 🎮\n\nအောက်ပါ menu မှရွေးချယ်ပါ။",
         "voucher_title": "Voucher Products\n\n📂 Category ရွေးပါ:\n✨ 📊 တစ်ခုရွေးပါ:",
         "game_title": "Topup Game ရွေးပါ:\n\nActive categories တွေ့ရှိပါသည်။ တစ်ခုရွေးပါ:",
         "choose_lang": "🌐 Language ရွေးပါ",
@@ -133,7 +133,7 @@ TEXTS = {
         "processing": "⏳ Your order is being processed. You'll be notified once it's complete.",
     },
     "az": {
-        "start": "🏢 <b>Prime Topup-a xoş gəlmisiniz!</b>\n\n🌴 Məhsulları araşdırın, sifarişlərinizi yoxlayın və ən yaxşı təklifləri əldə edin.\nSalam, <b>{name}</b>! Sizə necə kömək edə bilərəm?\n\n⚪ Başlamaq üçün aşağıdan seçim edin.",
+        "start": "<b>Prime Topup</b>-a xoş gəlmisiniz! 🎮\n\nAşağıdakı menyudan seçim edin.",
         "voucher_title": "Voucher Products\n\n📂 Kateqoriya seçin:\n✨ 📊 Birini seçin:",
         "game_title": "Topup oyununu seçin:\n\nAktiv kateqoriyalar tapıldı. Birini seçin:",
         "choose_lang": "🌐 Dil seçin",
@@ -165,10 +165,10 @@ async def tr(user_id: int | None, key: str) -> str:
 
 def _button_rows(labels: dict[str, str]):
     return [
-        [KeyboardButton(text=labels["voucher"]), KeyboardButton(text=labels["wallet"])],
-        [KeyboardButton(text=labels["orders"]), KeyboardButton(text=labels["gameid"])],
-        [KeyboardButton(text=labels["product_games"]), KeyboardButton(text=labels["language"])],
-        [KeyboardButton(text=labels["about"]), KeyboardButton(text=labels["support"])],
+        [rk_button(labels["voucher"], CUSTOM_EMOJI["voucher"]), rk_button(labels["wallet"], CUSTOM_EMOJI["wallet"])],
+        [rk_button(labels["orders"], CUSTOM_EMOJI["orders"]), rk_button(labels["gameid"], CUSTOM_EMOJI["game_id"])],
+        [rk_button(labels["product_games"], CUSTOM_EMOJI["product_games"]), rk_button(labels["language"], CUSTOM_EMOJI["settings"])],
+        [rk_button(labels["about"], CUSTOM_EMOJI["about"]), rk_button(labels["support"], CUSTOM_EMOJI["support"])],
     ]
 
 def main_menu_lang(lang: str = "en") -> ReplyKeyboardMarkup:
@@ -176,7 +176,21 @@ def main_menu_lang(lang: str = "en") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=_button_rows(labels), resize_keyboard=True)
 
 def all_labels(key: str) -> set[str]:
+    # Users send only the text field when pressing a keyboard button.
     return {v[key] for v in LABELS.values()}
+
+def rk_button(text: str, icon_id: str | None = None) -> KeyboardButton:
+    # icon_custom_emoji_id requires recent Bot API / aiogram. If unsupported by the account, Telegram may ignore the icon.
+    kwargs = {"text": text}
+    if icon_id:
+        kwargs["icon_custom_emoji_id"] = icon_id
+    return KeyboardButton(**kwargs)
+
+def ik_button(text: str, callback_data: str, icon_id: str | None = None) -> InlineKeyboardButton:
+    kwargs = {"text": text, "callback_data": callback_data}
+    if icon_id:
+        kwargs["icon_custom_emoji_id"] = icon_id
+    return InlineKeyboardButton(**kwargs)
 
 def _patch_keyboards():
     def main_menu():
@@ -184,18 +198,18 @@ def _patch_keyboards():
         return main_menu_lang("en")
 
     def voucher_categories():
-        rows = [[InlineKeyboardButton(text=CATEGORIES.get(cat, cat), callback_data=f"cat:{cat}")] for cat in PARENT_MENUS.get("voucher", [])]
-        rows.append([InlineKeyboardButton(text="⬅️ Back", callback_data="home")])
+        rows = [[ik_button(CATEGORIES.get(cat, cat), f"cat:{cat}")] for cat in PARENT_MENUS.get("voucher", [])]
+        rows.append([ik_button("Back", "home")])
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def game_categories():
-        rows = [[InlineKeyboardButton(text=CATEGORIES.get(cat, cat), callback_data=f"cat:{cat}")] for cat in PARENT_MENUS.get("gameid", [])]
-        rows.append([InlineKeyboardButton(text="⬅️ Back", callback_data="home")])
+        rows = [[ik_button(CATEGORIES.get(cat, cat), f"cat:{cat}")] for cat in PARENT_MENUS.get("gameid", [])]
+        rows.append([ik_button("Back", "home")])
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def subcats(parent: str):
-        rows = [[InlineKeyboardButton(text=CATEGORIES.get(cat, cat), callback_data=f"cat:{cat}")] for cat in SUBCATEGORIES.get(parent, [])]
-        rows.append([InlineKeyboardButton(text="⬅️ Back", callback_data="voucher")])
+        rows = [[ik_button(CATEGORIES.get(cat, cat), f"cat:{cat}")] for cat in SUBCATEGORIES.get(parent, [])]
+        rows.append([ik_button("Back", "voucher")])
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def products_keyboard(products, parent_back: str):
@@ -204,32 +218,32 @@ def _patch_keyboards():
             price = round(float(r["base_price"]) * float(r["rate"]) / 100, 2)
             title = str(r["title"])
             # clean product button style: no stock, only Available
-            rows.append([InlineKeyboardButton(text=f"{title} | {price:.2f} USDT | ✅ Available", callback_data=f"buy:{r['id']}")])
-        rows.append([InlineKeyboardButton(text="⬅️ Back", callback_data=parent_back)])
+            rows.append([ik_button(f"{title} | {price:.2f} USDT | ✅ Available", f"buy:{r['id']}")])
+        rows.append([ik_button("Back", parent_back)])
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def wallet_keyboard():
         return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="USDT BEP20", callback_data="pay:BEP20"), InlineKeyboardButton(text="USDT TRC20", callback_data="pay:TRC20")],
-            [InlineKeyboardButton(text="Bybit ID", callback_data="pay:BYBIT")],
-            [InlineKeyboardButton(text="📊 📝 Transaction History", callback_data="txhistory")],
-            [InlineKeyboardButton(text="⬅️ Back to Menu", callback_data="home")],
+            [ik_button("USDT BEP20", "pay:BEP20", CUSTOM_EMOJI["wallet"]), ik_button("USDT TRC20", "pay:TRC20", CUSTOM_EMOJI["wallet"])],
+            [ik_button("Bybit ID", "pay:BYBIT", CUSTOM_EMOJI["game_id"])],
+            [ik_button("Transaction History", "txhistory", CUSTOM_EMOJI["orders"])],
+            [ik_button("Back to Menu", "home")],
         ])
 
     def langs_keyboard():
         return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🇸🇦 العربية", callback_data="lang:ar")],
-            [InlineKeyboardButton(text="🇺🇸 English", callback_data="lang:en")],
-            [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")],
-            [InlineKeyboardButton(text="🇲🇲 မြန်မာ", callback_data="lang:my")],
-            [InlineKeyboardButton(text="🇦🇿 Azərbaycan", callback_data="lang:az")],
-            [InlineKeyboardButton(text="❌ Cancel", callback_data="home")],
+            [ik_button("العربية", "lang:ar", CUSTOM_EMOJI["settings"])],
+            [ik_button("English", "lang:en", CUSTOM_EMOJI["settings"])],
+            [ik_button("Русский", "lang:ru", CUSTOM_EMOJI["settings"])],
+            [ik_button("မြန်မာ", "lang:my", CUSTOM_EMOJI["settings"])],
+            [ik_button("Azərbaycan", "lang:az", CUSTOM_EMOJI["settings"])],
+            [ik_button("Cancel", "home")],
         ])
 
     def invoice_keyboard(method: str):
         return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📋 Copy Address", callback_data=f"copy:{method}")],
-            [InlineKeyboardButton(text="❌ Cancel", callback_data="cancelpay")],
+            [ik_button("Copy Address", f"copy:{method}")],
+            [ik_button("Cancel", "cancelpay")],
         ])
 
     kb.main_menu = main_menu
@@ -275,7 +289,10 @@ async def user_guard(message: Message) -> bool:
 async def start(message: Message):
     if not await user_guard(message): return
     lang = await get_lang(message.from_user.id)
-    await message.answer((await tr(message.from_user.id, "start")).format(name=message.from_user.first_name or "User"), reply_markup=main_menu_lang(lang))
+    await message.answer(
+        await tr(message.from_user.id, "start"),
+        reply_markup=main_menu_lang(lang)
+    )
 
 @router.message(F.text.in_(all_labels("voucher")))
 async def voucher(message: Message):
@@ -325,84 +342,25 @@ async def language(message: Message):
 
 @router.message(F.text.in_(all_labels("about")))
 async def about(message: Message):
-    lang = await get_lang(message.from_user.id if message.from_user else None)
-    about_texts = {
-        "en": f"""{icon("about", "‼️")} <b>About Prime Topup</b>
-
-Prime Topup is a digital service for game top-ups and digital gift cards.
-
-✅ Original codes and trusted products.
-✅ Many codes are valid for storage up to 1 year.
-✅ Fast order processing after payment or wallet balance purchase.
-✅ Wallet top-up by USDT BEP20, USDT TRC20, or Bybit ID.
-✅ Simple order tracking through My Orders.
-✅ Multi-language support: Arabic, English, Russian, Myanmar, and Azerbaijani.
-
-How it works:
-1) Top up your wallet.
-2) Choose a product or Game ID recharge.
-3) Send the required player/account ID if needed.
-4) Your order will be processed and you will be notified once complete.
-
-Need help? Contact Support anytime.
-Support: {config.support_username}
-Channel: {config.channel_url}""",
-        "ar": f"""{icon("about", "‼️")} <b>حول Prime Topup</b>
-
-Prime Topup هو بوت مخصص لشحن الألعاب وبيع البطاقات الرقمية بطريقة سهلة وآمنة.
-
-✅ الأكواد أصلية والمنتجات موثوقة.
-✅ الكثير من الأكواد صالحة للتخزين لمدة تصل إلى سنة.
-✅ معالجة سريعة للطلبات بعد الدفع أو الشراء من رصيد المحفظة.
-✅ يمكنك شحن المحفظة عبر USDT BEP20 أو USDT TRC20 أو Bybit ID.
-✅ يمكنك متابعة طلباتك من قسم My Orders.
-✅ يدعم عدة لغات: العربية، الإنجليزية، الروسية، الميانمارية، والأذربيجانية.
-
-طريقة الاستخدام:
-1) اشحن محفظتك.
-2) اختر المنتج أو شحن Game ID.
-3) أرسل ID اللاعب أو الحساب إذا كان مطلوباً.
-4) سيتم معالجة الطلب وإشعارك عند اكتماله.
-
-لأي مساعدة تواصل مع الدعم في أي وقت.
-الدعم: {config.support_username}
-القناة: {config.channel_url}""",
-        "ru": f"""{icon("about", "‼️")} <b>О Prime Topup</b>
-
-Prime Topup — бот для пополнения игр и покупки цифровых подарочных карт.
-
-✅ Оригинальные коды и проверенные товары.
-✅ Многие коды можно хранить до 1 года.
-✅ Быстрая обработка заказов.
-✅ Пополнение баланса через USDT BEP20, USDT TRC20 или Bybit ID.
-✅ Проверка заказов в разделе My Orders.
-
-Поддержка: {config.support_username}
-Канал: {config.channel_url}""",
-        "my": f"""{icon("about", "‼️")} <b>About Prime Topup</b>
-
-Prime Topup သည် game top-up နှင့် digital gift cards အတွက် bot ဖြစ်သည်။
-
-✅ Original codes and trusted products.
-✅ Codes can be stored up to 1 year for many products.
-✅ Fast order processing.
-✅ Wallet top-up with USDT BEP20, USDT TRC20, or Bybit ID.
-
-Support: {config.support_username}
-Channel: {config.channel_url}""",
-        "az": f"""{icon("about", "‼️")} <b>Prime Topup haqqında</b>
-
-Prime Topup oyun yükləmələri və rəqəmsal hədiyyə kartları üçün botdur.
-
-✅ Orijinal kodlar və etibarlı məhsullar.
-✅ Bir çox kod 1 ilə qədər saxlanıla bilər.
-✅ Sürətli sifariş emalı.
-✅ USDT BEP20, USDT TRC20 və ya Bybit ID ilə balans artırma.
-
-Dəstək: {config.support_username}
-Kanal: {config.channel_url}""",
-    }
-    await message.answer(about_texts.get(lang, about_texts["en"]))
+    await message.answer(
+        f'{icon("about", "‼️")} <b>About Prime Topup</b>\n\n'
+        'Prime Topup is a digital service bot for game top-ups, voucher codes, and gift cards.\n\n'
+        '<b>How it works:</b>\n'
+        '1. Top up your wallet using USDT BEP20, USDT TRC20, or Bybit.\n'
+        '2. Choose the product or game recharge you need.\n'
+        '3. Pay from your wallet balance.\n'
+        '4. Your order will be processed and you will be notified once it is complete.\n\n'
+        '<b>Important information:</b>\n'
+        '✅ All codes are original and safe.\n'
+        '✅ Voucher codes are valid for storage up to 1 year.\n'
+        '✅ Game ID orders are processed fast.\n'
+        '✅ Wallet balance is used for all purchases.\n'
+        '✅ You can track your orders and payment transactions inside the bot.\n'
+        '✅ Multi-language support is available.\n\n'
+        '<b>Support:</b>\n'
+        f'For help, contact {config.support_username}\n'
+        f'Official channel: {config.channel_url}'
+    )
 
 @router.message(F.text.in_(all_labels("support")))
 async def support(message: Message, state: FSMContext):
@@ -425,7 +383,7 @@ async def support_msg(message: Message, state: FSMContext):
 @router.callback_query(F.data == "home")
 async def cb_home(call: CallbackQuery):
     lang = await get_lang(call.from_user.id)
-    await call.message.answer("🏠 Main Menu", reply_markup=main_menu_lang(lang))
+    await call.message.answer("Main menu", reply_markup=main_menu_lang(lang))
     await call.answer()
 
 @router.callback_query(F.data == "voucher")
