@@ -504,9 +504,11 @@ async def cb_buy(call: CallbackQuery, state: FSMContext):
         else:
             await call.message.answer(await tr(call.from_user.id, "processing"))
             await notify_admin(
-                f"🆕 New voucher order\n"
-                f"Order: #{order['id']}\nUser: <code>{call.from_user.id}</code> @{call.from_user.username or '-'}\n"
-                f"Product: {product['title']}\nPrice: {price:.2f} USDT\n\nReply: /reply {call.from_user.id} MESSAGE"
+                f"🆕 New Order #{order['id']}\n"
+                f"User: {call.from_user.id}\n"
+                f"Product: {product['title']} x1\n"
+                f"Total: ${price:.2f}\n"
+                f"Status: processing"
             )
     await call.answer()
 
@@ -525,10 +527,12 @@ async def got_game_id(message: Message, state: FSMContext):
     else:
         await message.answer(await tr(message.from_user.id, "processing"))
         await notify_admin(
-            f"🆕 New Game ID order\n"
-            f"Order: #{order['id']}\nUser: <code>{message.from_user.id}</code> @{message.from_user.username or '-'}\n"
-            f"Product: {product['title']}\nPrice: {price:.2f} USDT\nGame ID: <code>{message.text.strip()}</code>\n\n"
-            f"Reply: /reply {message.from_user.id} MESSAGE"
+            f"🆕 New Order #{order['id']}\n"
+            f"User: {message.from_user.id}\n"
+            f"Product: {product['title']} x1\n"
+            f"Total: ${price:.2f}\n"
+            f"Status: processing\n"
+            f"Game ID: <code>{message.text.strip()}</code>"
         )
     await state.clear()
 
@@ -555,32 +559,81 @@ async def cb_pay(call: CallbackQuery, state: FSMContext):
 async def payment_amount(message: Message, state: FSMContext):
     try:
         amount = round(float(message.text.strip().replace(",", ".")), 2)
-        if amount <= 0: raise ValueError
+        if amount <= 0:
+            raise ValueError
     except Exception:
         await message.answer("❌ Please enter a valid amount, example: 5")
         return
+
     method = pending_pay_method.get(message.from_user.id, "BEP20")
     address = config.bep20_address if method == "BEP20" else config.trc20_address
+    # Keep an expiry in the database only for compatibility with the old table.
+    # It is NOT shown to the customer anymore.
     expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.create_payment(message.from_user.id, amount, method, address, expires)
+
+    invoice_id = None
+    try:
+        rows = await db.fetch(
+            "SELECT id FROM payments WHERE user_id=$1 AND status='PENDING' ORDER BY id DESC LIMIT 1",
+            message.from_user.id,
+        )
+        if rows:
+            invoice_id = rows[0]["id"]
+    except Exception:
+        invoice_id = None
+
     chain = "BSC / BEP20" if method == "BEP20" else "TRC20 / TRON"
+    await state.update_data(payment_amount=amount, payment_method=method, payment_address=address, invoice_id=invoice_id)
     await message.answer(
         f"💰 Kindly deposit exactly <b>{amount:.2f} USDT</b> ({chain}).\n\n"
         f"📋 <b>Payment Address</b>\n<code>{address}</code>\n\n"
         "☝️ Tap and hold the address to copy.\n\n"
-        f"⏰ This session will expire in 10 minutes ({expires.strftime('%d.%m.%Y %H:%M UTC')}).\n"
-        "⬇️ After payment, send the Transaction ID (TXID) here.\n\n"
-        "⚠️ Only payments made after this session was created will be accepted. Old TXIDs will not be accepted.\n"
-        f"⚠️ The TXID amount must be exactly {amount:.2f} USDT.",
+        "⬇️ After payment, send the Hash / TXID link here.",
         reply_markup=kb.invoice_keyboard(method)
     )
     await state.set_state(UserFlow.waiting_txid)
 
 @router.message(UserFlow.waiting_txid)
 async def txid_received(message: Message, state: FSMContext):
-    await db.execute("""UPDATE payments SET txid=$2, status='WAITING_ADMIN' WHERE user_id=$1 AND status='PENDING'""", message.from_user.id, message.text.strip())
-    await message.answer("✅ TXID received. Your payment is being reviewed.")
-    await notify_admin(f"💳 New payment TXID\nUser: <code>{message.from_user.id}</code>\nTXID: <code>{message.text.strip()}</code>\nUse /addbalance USER_ID AMOUNT after confirmation.")
+    data = await state.get_data()
+    amount = float(data.get("payment_amount", 0) or 0)
+    method = data.get("payment_method") or pending_pay_method.get(message.from_user.id, "BEP20")
+    address = data.get("payment_address") or (config.bep20_address if method == "BEP20" else config.trc20_address)
+    invoice_id = data.get("invoice_id")
+    hash_link = message.text.strip()
+
+    await db.execute(
+        """UPDATE payments SET txid=$2, status='WAITING_ADMIN' WHERE user_id=$1 AND status='PENDING'""",
+        message.from_user.id,
+        hash_link,
+    )
+
+    if not invoice_id:
+        try:
+            rows = await db.fetch(
+                "SELECT id, amount FROM payments WHERE user_id=$1 AND txid=$2 ORDER BY id DESC LIMIT 1",
+                message.from_user.id,
+                hash_link,
+            )
+            if rows:
+                invoice_id = rows[0]["id"]
+                amount = float(rows[0]["amount"])
+        except Exception:
+            pass
+
+    await message.answer("✅ Hash / TXID received. Your payment is being reviewed.")
+    await notify_admin(
+        f"💰 Manual Payment Check Requested\n\n"
+        f"Invoice ID: #{invoice_id or '-'}\n"
+        f"User ID: {message.from_user.id}\n"
+        f"Username: @{message.from_user.username or '-'}\n"
+        f"Network: {method}\n"
+        f"Amount: ${amount:.2f}\n"
+        f"Address: {address}\n"
+        f"Hash / TXID: <code>{hash_link}</code>\n\n"
+        f"Use:\n/addbalance {message.from_user.id} {amount:.2f}"
+    )
     await state.clear()
 
 @router.callback_query(F.data.startswith("copy:"))
