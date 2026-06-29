@@ -56,33 +56,55 @@ CUSTOM_EMOJI = {
 }
 
 LABELS = {
-    # The emoji is part of the button text. This is the reliable Telegram ReplyKeyboard method.
-    # Telegram custom_emoji_id is kept in messages/inline buttons when supported, but ReplyKeyboard can ignore it on many clients/bot API setups.
+    # Keep button text clean. The visual icon is sent through icon_custom_emoji_id.
+    # Legacy emoji labels are still accepted in all_labels() for users who already have an old keyboard open.
     "en": {
-        "voucher": "🎮 Voucher Products", "wallet": "👛 My Wallet", "orders": "📊 My Orders",
-        "gameid": "🔤 Game ID", "product_games": "🎲 Product Games", "language": "🌐 Language",
-        "about": "‼️ About", "support": "⚡ Support",
+        "voucher": "Voucher Products", "wallet": "My Wallet", "orders": "My Orders",
+        "gameid": "Game ID", "product_games": "Product Games", "language": "Language",
+        "about": "About", "support": "Support",
     },
     "ar": {
-        "voucher": "🎮 المنتجات", "wallet": "👛 محفظتي", "orders": "📊 طلباتي",
-        "gameid": "🔤 شحن ID", "product_games": "🎲 منتجات الألعاب", "language": "🌐 اللغة",
-        "about": "‼️ حول البوت", "support": "⚡ الدعم",
+        "voucher": "المنتجات", "wallet": "محفظتي", "orders": "طلباتي",
+        "gameid": "شحن ID", "product_games": "منتجات الألعاب", "language": "اللغة",
+        "about": "حول البوت", "support": "الدعم",
     },
     "ru": {
-        "voucher": "🎮 Товары", "wallet": "👛 Кошелёк", "orders": "📊 Заказы",
-        "gameid": "🔤 Game ID", "product_games": "🎲 Игры", "language": "🌐 Язык",
-        "about": "‼️ О боте", "support": "⚡ Поддержка",
+        "voucher": "Товары", "wallet": "Кошелёк", "orders": "Заказы",
+        "gameid": "Game ID", "product_games": "Игры", "language": "Язык",
+        "about": "О боте", "support": "Поддержка",
     },
     "my": {
-        "voucher": "🎮 Products", "wallet": "👛 Wallet", "orders": "📊 Orders",
-        "gameid": "🔤 Game ID", "product_games": "🎲 Games", "language": "🌐 Language",
-        "about": "‼️ About", "support": "⚡ Support",
+        "voucher": "Products", "wallet": "Wallet", "orders": "Orders",
+        "gameid": "Game ID", "product_games": "Games", "language": "Language",
+        "about": "About", "support": "Support",
     },
     "az": {
-        "voucher": "🎮 Məhsullar", "wallet": "👛 Pul kisəsi", "orders": "📊 Sifarişlər",
-        "gameid": "🔤 Game ID", "product_games": "🎲 Oyunlar", "language": "🌐 Dil",
-        "about": "‼️ Haqqında", "support": "⚡ Dəstək",
+        "voucher": "Məhsullar", "wallet": "Pul kisəsi", "orders": "Sifarişlər",
+        "gameid": "Game ID", "product_games": "Oyunlar", "language": "Dil",
+        "about": "Haqqında", "support": "Dəstək",
     },
+}
+
+BUTTON_ICON_IDS = {
+    "voucher": CUSTOM_EMOJI["voucher"],
+    "wallet": CUSTOM_EMOJI["wallet"],
+    "orders": CUSTOM_EMOJI["orders"],
+    "gameid": CUSTOM_EMOJI["game_id"],
+    "product_games": CUSTOM_EMOJI["product_games"],
+    "language": CUSTOM_EMOJI["settings"],
+    "about": CUSTOM_EMOJI["about"],
+    "support": CUSTOM_EMOJI["support"],
+}
+
+LEGACY_BUTTON_EMOJIS = {
+    "voucher": "🎮",
+    "wallet": "👛",
+    "orders": "📊",
+    "gameid": "🔤",
+    "product_games": "🎲",
+    "language": "🌐",
+    "about": "‼️",
+    "support": "⚡",
 }
 
 TEXTS = {
@@ -167,10 +189,10 @@ async def tr(user_id: int | None, key: str) -> str:
 
 def _button_rows(labels: dict[str, str]):
     return [
-        [rk_button(labels["voucher"]), rk_button(labels["wallet"])],
-        [rk_button(labels["orders"]), rk_button(labels["gameid"])],
-        [rk_button(labels["product_games"]), rk_button(labels["language"])],
-        [rk_button(labels["about"]), rk_button(labels["support"])],
+        [rk_button(labels["voucher"], BUTTON_ICON_IDS["voucher"]), rk_button(labels["wallet"], BUTTON_ICON_IDS["wallet"])],
+        [rk_button(labels["orders"], BUTTON_ICON_IDS["orders"]), rk_button(labels["gameid"], BUTTON_ICON_IDS["gameid"])],
+        [rk_button(labels["product_games"], BUTTON_ICON_IDS["product_games"]), rk_button(labels["language"], BUTTON_ICON_IDS["language"])],
+        [rk_button(labels["about"], BUTTON_ICON_IDS["about"]), rk_button(labels["support"], BUTTON_ICON_IDS["support"])],
     ]
 
 def main_menu_lang(lang: str = "en") -> ReplyKeyboardMarkup:
@@ -186,8 +208,12 @@ def _strip_button_emoji(text: str) -> str:
 
 def all_labels(key: str) -> set[str]:
     # Users send the visible text when pressing a keyboard button.
+    # Accept both the new clean text and old emoji-prefixed button text.
     vals = {v[key] for v in LABELS.values()}
     vals |= {_strip_button_emoji(v) for v in vals}
+    prefix = LEGACY_BUTTON_EMOJIS.get(key)
+    if prefix:
+        vals |= {f"{prefix} {v[key]}" for v in LABELS.values()}
     return vals
 
 def rk_button(text: str, icon_id: str | None = None) -> KeyboardButton:
