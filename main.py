@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import html
 import io
 import json
 import logging
@@ -207,7 +208,7 @@ LABELS = {
 
 TEXTS = {
     "en": {
-        "start": "Welcome to <b>Prime Topup</b>! 🎮\n\nChoose an option from the menu below.",
+        "start": "🤖 Hello <b>{name}</b>, welcome to ✨ <b>Prime Bot</b> ✨\nYour gift card store bot!\n\n🔹 Browse gift cards\n\n🔹 Add balance to your account\n\n🔹 Buy gift cards easily\n\nPlease choose an option from the menu below:",
         "voucher_title": "Voucher Products\n\n📂 Select Category:\n✨ 📊 Select one:",
         "game_title": "Select Topup Game:\n\nTotal active game categories found. Select one:",
         "choose_lang": "🌐 Choose Language", "lang_saved": "✅ Language saved.",
@@ -251,7 +252,7 @@ TEXTS = {
         "bybit_payment": "💳 Bybit ID\n\nSend payment to Bybit ID:\n<code>{bybit_id}</code>\n\nAfter payment, send TXID or screenshot details to support.",
     },
     "ar": {
-        "start": "مرحباً بك في <b>Prime Topup</b>! 🎮\n\nاختر خياراً من القائمة بالأسفل.",
+        "start": "🤖 مرحباً <b>{name}</b> في ✨ <b>برايم بوت</b> ✨\nبوت متجر بطاقات الهدايا!\n\n🔹 تصفح بطاقات الهدايا\n\n🔹 أضف رصيد إلى حسابك\n\n🔹 اشتر بطاقات الهدايا بسهولة\n\nيرجى اختيار خيار من القائمة أدناه:",
         "voucher_title": "منتجات البطاقات\n\n📂 اختر القسم:\n✨ 📊 اختر واحداً:",
         "game_title": "اختر لعبة الشحن:\n\nتم العثور على أقسام شحن نشطة. اختر واحداً:",
         "choose_lang": "🌐 اختر اللغة", "lang_saved": "✅ تم حفظ اللغة.",
@@ -290,7 +291,7 @@ TEXTS = {
         "bybit_payment": "💳 Bybit ID\n\nأرسل الدفعة إلى Bybit ID:\n<code>{bybit_id}</code>\n\nبعد الدفع، أرسل TXID أو تفاصيل العملية إلى الدعم.",
     },
     "ru": {
-        "start": "Добро пожаловать в <b>Prime Topup</b>! 🎮\n\nВыберите пункт в меню ниже.",
+        "start": "🤖 Здравствуйте, <b>{name}</b>! Добро пожаловать в ✨ <b>Prime Bot</b> ✨\nБот-магазин подарочных карт!\n\n🔹 Просматривайте подарочные карты\n\n🔹 Пополняйте баланс аккаунта\n\n🔹 Легко покупайте подарочные карты\n\nВыберите нужный пункт в меню ниже:",
         "voucher_title": "Цифровые товары\n\n📂 Выберите категорию:\n✨ 📊 Выберите вариант:",
         "game_title": "Выберите игру для пополнения:\n\nВыберите активную категорию:",
         "choose_lang": "🌐 Выберите язык", "lang_saved": "✅ Язык сохранён.", "no_orders": "📦 У вас пока нет заказов.",
@@ -328,11 +329,11 @@ TEXTS = {
 # Myanmar and Azerbaijani keep the existing supported-language behavior, but all new UI keys
 # fall back safely to English instead of leaving broken/missing text.
 TEXTS["my"] = {**TEXTS["en"], **{
-    "start": "<b>Prime Topup</b> မှ ကြိုဆိုပါတယ်! 🎮\n\nအောက်ပါ menu မှရွေးချယ်ပါ။",
+    "start": "🤖 မင်္ဂလာပါ <b>{name}</b>၊ ✨ <b>Prime Bot</b> ✨ မှ ကြိုဆိုပါတယ်။\nGift Card အရောင်း Bot ဖြစ်ပါတယ်။\n\n🔹 Gift Card များကို ကြည့်ရှုပါ\n\n🔹 သင့်အကောင့်လက်ကျန်ကို ဖြည့်ပါ\n\n🔹 Gift Card များကို လွယ်ကူစွာ ဝယ်ယူပါ\n\nအောက်ပါ menu မှ ရွေးချယ်ပါ:",
     "choose_lang": "🌐 Language ရွေးပါ", "lang_saved": "✅ Language saved.",
 }}
 TEXTS["az"] = {**TEXTS["en"], **{
-    "start": "<b>Prime Topup</b>-a xoş gəlmisiniz! 🎮\n\nAşağıdakı menyudan seçim edin.",
+    "start": "🤖 Salam <b>{name}</b>, ✨ <b>Prime Bot</b> ✨-a xoş gəlmisiniz!\nHədiyyə kartları mağazası botu!\n\n🔹 Hədiyyə kartlarına baxın\n\n🔹 Hesabınıza balans əlavə edin\n\n🔹 Hədiyyə kartlarını asanlıqla alın\n\nAşağıdakı menyudan seçim edin:",
     "choose_lang": "🌐 Dil seçin", "lang_saved": "✅ Dil yadda saxlanıldı.",
     "main_menu": "Əsas menyu", "back": "Geri", "cancel": "Ləğv et", "available": "Mövcuddur",
 }}
@@ -752,7 +753,11 @@ async def start(message: Message):
     lang = await get_lang(message.from_user.id)
     await _send_ui(
         message,
-        await tr(message.from_user.id, "start"),
+        tr_lang(
+            lang,
+            "start",
+            name=html.escape(message.from_user.first_name or message.from_user.username or "User"),
+        ),
         reply_markup=main_menu_lang(lang)
     )
 
@@ -760,13 +765,13 @@ async def start(message: Message):
 async def voucher(message: Message):
     if not await user_guard(message): return
     lang = await get_lang(message.from_user.id)
-    await _edit_ui_from_message(message, await tr(message.from_user.id, "voucher_title"), reply_markup=kb.voucher_categories(lang))
+    await _send_ui(message, await tr(message.from_user.id, "voucher_title"), reply_markup=kb.voucher_categories(lang))
 
 @router.message(F.text.in_(all_labels("gameid")))
 async def game_id(message: Message):
     if not await user_guard(message): return
     lang = await get_lang(message.from_user.id)
-    await _edit_ui_from_message(message, await tr(message.from_user.id, "game_title"), reply_markup=kb.game_categories(lang))
+    await _send_ui(message, await tr(message.from_user.id, "game_title"), reply_markup=kb.game_categories(lang))
 
 @router.message(F.text.in_(all_labels("wallet")))
 async def wallet(message: Message):
@@ -781,7 +786,7 @@ async def wallet(message: Message):
         f"{tr_lang(lang, 'current_balance')}\n<code>{bal:.4f} $</code>\n"
         f"{tr_lang(lang, 'wallet_next')}"
     )
-    await _edit_ui_from_message(message, text, reply_markup=kb.wallet_keyboard(lang))
+    await _send_ui(message, text, reply_markup=kb.wallet_keyboard(lang))
 
 @router.message(F.text.in_(all_labels("orders")))
 async def my_orders(message: Message):
@@ -789,7 +794,7 @@ async def my_orders(message: Message):
     lang = await get_lang(message.from_user.id)
     rows = await db.recent_orders(message.from_user.id)
     if not rows:
-        await _edit_ui_from_message(message, await tr(message.from_user.id, "no_orders"))
+        await _send_ui(message, await tr(message.from_user.id, "no_orders"))
         return
     latest = rows[0]
     latest_title, latest_qty = parse_order_quantity(str(latest["title"]))
@@ -810,18 +815,18 @@ async def my_orders(message: Message):
             f"{tr_lang(lang, 'status')}: ✅ {str(r['status']).title()}\n"
             f"📅 {r['created_at'].strftime('%d.%m.%Y %H:%M')}"
         )
-    await _edit_ui_from_message(message, f"{tr_lang(lang, 'my_orders')}\n\n{latest_block}\n\n──────────\n\n" + "\n\n".join(history))
+    await _send_ui(message, f"{tr_lang(lang, 'my_orders')}\n\n{latest_block}\n\n──────────\n\n" + "\n\n".join(history))
 
 @router.message(F.text.in_(all_labels("language")))
 async def language(message: Message):
     if not await user_guard(message): return
-    await _edit_ui_from_message(message, await tr(message.from_user.id, "choose_lang"), reply_markup=kb.langs_keyboard(await get_lang(message.from_user.id)))
+    await _send_ui(message, await tr(message.from_user.id, "choose_lang"), reply_markup=kb.langs_keyboard(await get_lang(message.from_user.id)))
 
 @router.message(F.text.in_(all_labels("about")))
 async def about(message: Message):
     if not await user_guard(message): return
     lang = await get_lang(message.from_user.id)
-    await _edit_ui_from_message(message, tr_lang(lang, "terms_title"), reply_markup=kb.terms_keyboard(lang))
+    await _send_ui(message, tr_lang(lang, "terms_title"), reply_markup=kb.terms_keyboard(lang))
 
 @router.callback_query(F.data.in_({"policy:tos", "policy:privacy", "policy:rules", "policy:faq"}))
 async def policy_page(call: CallbackQuery):
@@ -844,7 +849,7 @@ async def policy_menu(call: CallbackQuery):
 async def support(message: Message, state: FSMContext):
     if not await user_guard(message): return
     lang = await get_lang(message.from_user.id)
-    await _edit_ui_from_message(
+    await _send_ui(
         message,
         f"{tr_lang(lang, 'support_title')}\n\n"
         f"{tr_lang(lang, 'telegram_support')}\n{SUPPORT_USERNAME}\n\n"
