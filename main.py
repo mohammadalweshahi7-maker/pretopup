@@ -61,6 +61,70 @@ SPECIAL_PRODUCT_CATEGORIES = {
     },
 }
 
+# Fixed IDs used by the special Ferrari / Metro purchase flows.
+# They are seeded only when missing, so admin availability changes are preserved.
+FERRARI_ONE_ID = "pre_order_car_1"
+FERRARI_THREE_ID = "pre_order_car_3"
+METRO_SWORD_ID = "metro_sword_fixed"
+PREORDER_IMAGE_NAME = "photo_2026-07-12_10-04-04.jpg"
+
+SPECIAL_PRODUCT_IDS = {
+    "pre_order_cars": (FERRARI_ONE_ID, FERRARI_THREE_ID),
+    "metro_sword": (METRO_SWORD_ID,),
+}
+
+SPECIAL_TEXT = {
+    "en": {
+        "ferrari_caption": "🏎️ <b>Ferrari Cards Available</b>\n\n⏳ Delivery time: up to 72 hours",
+        "ferrari_one": "1 Card — 126 USDT",
+        "ferrari_three": "3 Cards — 430 USDT",
+        "metro_prompt": "⚔️ <b>METRO SWORD</b>\n\nPrice: 80 USDT\n\nPlease enter your PUBG Player ID:",
+        "ferrari_prompt": "Please enter your PUBG Player ID:",
+    },
+    "ar": {
+        "ferrari_caption": "🏎️ <b>بطاقات Ferrari متوفرة</b>\n\n⏳ مدة التسليم: خلال 72 ساعة كحد أقصى",
+        "ferrari_one": "بطاقة واحدة — 126 USDT",
+        "ferrari_three": "3 بطاقات — 430 USDT",
+        "metro_prompt": "⚔️ <b>METRO SWORD</b>\n\nالسعر: 80 USDT\n\nأدخل معرف لاعب PUBG:",
+        "ferrari_prompt": "أدخل معرف لاعب PUBG:",
+    },
+    "ru": {
+        "ferrari_caption": "🏎️ <b>Карты Ferrari доступны</b>\n\n⏳ Срок доставки: до 72 часов",
+        "ferrari_one": "1 карта — 126 USDT",
+        "ferrari_three": "3 карты — 430 USDT",
+        "metro_prompt": "⚔️ <b>METRO SWORD</b>\n\nЦена: 80 USDT\n\nВведите PUBG Player ID:",
+        "ferrari_prompt": "Введите PUBG Player ID:",
+    },
+    "my": {
+        "ferrari_caption": "🏎️ <b>Ferrari Cards Available</b>\n\n⏳ Delivery time: up to 72 hours",
+        "ferrari_one": "1 Card — 126 USDT",
+        "ferrari_three": "3 Cards — 430 USDT",
+        "metro_prompt": "⚔️ <b>METRO SWORD</b>\n\nPrice: 80 USDT\n\nPlease enter your PUBG Player ID:",
+        "ferrari_prompt": "Please enter your PUBG Player ID:",
+    },
+    "az": {
+        "ferrari_caption": "🏎️ <b>Ferrari kartları mövcuddur</b>\n\n⏳ Çatdırılma müddəti: 72 saata qədər",
+        "ferrari_one": "1 kart — 126 USDT",
+        "ferrari_three": "3 kart — 430 USDT",
+        "metro_prompt": "⚔️ <b>METRO SWORD</b>\n\nQiymət: 80 USDT\n\nPUBG oyunçu ID-sini daxil edin:",
+        "ferrari_prompt": "PUBG oyunçu ID-sini daxil edin:",
+    },
+}
+
+def special_text(lang: str, key: str) -> str:
+    return SPECIAL_TEXT.get(lang, SPECIAL_TEXT["en"]).get(key, SPECIAL_TEXT["en"].get(key, key))
+
+def preorder_image_path() -> Path | None:
+    base = Path(__file__).resolve().parent
+    exact = base / PREORDER_IMAGE_NAME
+    if exact.exists():
+        return exact
+    for pattern in ("*ferrari*.jpg", "*ferrari*.jpeg", "*ferrari*.png", "*pre*order*car*.jpg", "photo_*.jpg"):
+        matches = sorted(base.glob(pattern))
+        if matches:
+            return matches[0]
+    return None
+
 # ---------------- Prime Topup UI, custom icons, and translations ----------------
 # Telegram Bot API supports icon_custom_emoji_id for ReplyKeyboard and InlineKeyboard buttons in recent Bot API versions.
 # Keep the visible button text clean; Telegram shows the custom emoji before the text when the bot/account is eligible.
@@ -437,6 +501,35 @@ def all_labels(key: str) -> set[str]:
 def _clean_key(value: str) -> str:
     return "".join(ch.lower() if ch.isalnum() else "_" for ch in str(value)).strip("_")
 
+async def ensure_special_products():
+    """Seed special products only when missing; preserve admin changes afterward."""
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    rows = [
+        (FERRARI_ONE_ID, "pre_order_cars", "Ferrari Card", 126.0, 100.0, True, True, now),
+        (FERRARI_THREE_ID, "pre_order_cars", "Ferrari Cards (3 Cards)", 430.0, 100.0, True, True, now),
+        (METRO_SWORD_ID, "metro_sword", "METRO SWORD", 80.0, 100.0, True, True, now),
+    ]
+    for row in rows:
+        try:
+            await db.execute(
+                """INSERT OR IGNORE INTO products
+                (id, category, title, base_price, rate, enabled, ask_game_id, created_at)
+                VALUES($1,$2,$3,$4,$5,$6,$7,$8)""",
+                *row,
+            )
+        except Exception as exc:
+            logging.warning("Could not seed special product %s: %s", row[0], exc)
+
+async def set_product_availability(product_key: str, enabled: bool) -> int:
+    ids = SPECIAL_PRODUCT_IDS.get(product_key.strip(), (product_key.strip(),))
+    affected = 0
+    for product_id in ids:
+        exists = await db.fetchval("SELECT COUNT(*) FROM products WHERE id=$1", product_id)
+        if exists:
+            await db.execute("UPDATE products SET enabled=$2 WHERE id=$1", product_id, enabled)
+            affected += 1
+    return affected
+
 def category_icon_id(cat_key: str, title: str | None = None) -> str | None:
     haystack = f"{cat_key} {title or ''}".lower()
     haystack_clean = _clean_key(haystack)
@@ -717,21 +810,50 @@ async def cb_voucher(call: CallbackQuery):
     await call.answer()
 
 @router.callback_query(F.data.startswith("cat:"))
-async def cb_category(call: CallbackQuery):
+async def cb_category(call: CallbackQuery, state: FSMContext):
     lang = await get_lang(call.from_user.id)
     cat = call.data.split(":",1)[1]
     if cat in SUBCATEGORIES:
         msg = f"{localize_title(CATEGORIES[cat], lang)}\n{tr_lang(lang, 'select_category')}"
         await call.message.edit_text(msg, reply_markup=kb.subcats(cat, lang))
         await call.answer(); return
-    if cat in SPECIAL_PRODUCT_CATEGORIES:
-        products = await get_special_products(cat)
-        title = SPECIAL_PRODUCT_CATEGORIES[cat]["title"]
-    else:
-        products = await db.get_products(cat)
-        if "pubg" in str(cat).lower():
-            products = [p for p in products if not is_special_product(p)]
-        title = CATEGORIES.get(cat, cat)
+    if cat == "pre_order_cars":
+        available = await db.fetch(
+            "SELECT id FROM products WHERE id IN ($1,$2) AND enabled=true ORDER BY id",
+            FERRARI_ONE_ID, FERRARI_THREE_ID,
+        )
+        available_ids = {str(_row_get(row, "id", "")) for row in available}
+        if not available_ids:
+            await call.answer(tr_lang(lang, "no_products"), show_alert=True); return
+        buttons = []
+        if FERRARI_ONE_ID in available_ids:
+            buttons.append([ik_button(special_text(lang, "ferrari_one"), f"specialbuy:{FERRARI_ONE_ID}", style="primary")])
+        if FERRARI_THREE_ID in available_ids:
+            buttons.append([ik_button(special_text(lang, "ferrari_three"), f"specialbuy:{FERRARI_THREE_ID}", style="primary")])
+        buttons.append([ik_button(tr_lang(lang, "back"), "voucher", style="danger")])
+        markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+        image = preorder_image_path()
+        if image:
+            await call.message.answer_photo(FSInputFile(image), caption=special_text(lang, "ferrari_caption"), reply_markup=markup)
+        else:
+            logging.warning("PRE ORDER CARS image was not found: %s", PREORDER_IMAGE_NAME)
+            await call.message.answer(special_text(lang, "ferrari_caption"), reply_markup=markup)
+        await call.answer(); return
+
+    if cat == "metro_sword":
+        product = await db.get_product(METRO_SWORD_ID)
+        if not product:
+            await call.answer(tr_lang(lang, "no_products"), show_alert=True); return
+        await state.clear()
+        await state.update_data(product_id=METRO_SWORD_ID, unit_price=80.0, quantity=1, quantity_label="1")
+        await call.message.answer(special_text(lang, "metro_prompt"))
+        await state.set_state(UserFlow.waiting_game_id)
+        await call.answer(); return
+
+    products = await db.get_products(cat)
+    if "pubg" in str(cat).lower():
+        products = [p for p in products if not is_special_product(p)]
+    title = CATEGORIES.get(cat, cat)
     if not products:
         await call.answer(tr_lang(lang, "no_products"), show_alert=True); return
     parent_back = "gameid" if cat in PARENT_MENUS.get("gameid", []) else "voucher"
@@ -746,6 +868,23 @@ async def cb_category(call: CallbackQuery):
 async def cb_gameid(call: CallbackQuery):
     lang = await get_lang(call.from_user.id)
     await call.message.edit_text(await tr(call.from_user.id, "game_title"), reply_markup=kb.game_categories(lang))
+    await call.answer()
+
+@router.callback_query(F.data.startswith("specialbuy:"))
+async def cb_special_buy(call: CallbackQuery, state: FSMContext):
+    lang = await get_lang(call.from_user.id)
+    product_id = call.data.split(":", 1)[1]
+    if product_id not in {FERRARI_ONE_ID, FERRARI_THREE_ID}:
+        await call.answer(tr_lang(lang, "product_unavailable"), show_alert=True); return
+    product = await db.get_product(product_id)
+    if not product:
+        await call.answer(tr_lang(lang, "product_unavailable"), show_alert=True); return
+    total = 126.0 if product_id == FERRARI_ONE_ID else 430.0
+    quantity_label = "1 Card" if product_id == FERRARI_ONE_ID else "3 Cards"
+    await state.clear()
+    await state.update_data(product_id=product_id, unit_price=total, quantity=1, quantity_label=quantity_label, special_total=total)
+    await call.message.answer(special_text(lang, "ferrari_prompt"))
+    await state.set_state(UserFlow.waiting_game_id)
     await call.answer()
 
 @router.callback_query(F.data.startswith("buy:"))
@@ -787,12 +926,13 @@ async def show_order_confirmation(message: Message, state: FSMContext, product, 
     data = await state.get_data()
     quantity = int(data.get("quantity", 1))
     unit_price = float(data.get("unit_price", product_price(product)))
-    total = round(unit_price * quantity, 2)
+    total = round(float(data.get("special_total", unit_price * quantity)), 2)
+    display_quantity = data.get("quantity_label", quantity)
     game_id = str(data.get("game_id", "")).strip()
     game_id_line = f"\nGame ID: <code>{game_id}</code>" if game_id else ""
     await state.update_data(total=total)
     await message.answer(
-        tr_lang(lang, "confirm_order", title=localize_title(str(product["title"]), lang), quantity=quantity, total=total, game_id_line=game_id_line),
+        tr_lang(lang, "confirm_order", title=localize_title(str(product["title"]), lang), quantity=display_quantity, total=total, game_id_line=game_id_line),
         reply_markup=kb.confirm_order(lang),
     )
 
@@ -1271,6 +1411,42 @@ async def cmd_delproduct(message: Message):
     except Exception:
         await message.answer("Usage: /delproduct PRODUCT_ID")
 
+@router.message(Command("availability"))
+async def cmd_availability(message: Message):
+    if not admin_only(message): return
+    try:
+        _, product_key, raw_status = message.text.split(maxsplit=2)
+        status = raw_status.strip().lower()
+        if status not in {"available", "on", "1", "true", "unavailable", "off", "0", "false"}:
+            raise ValueError
+        enabled = status in {"available", "on", "1", "true"}
+        affected = await set_product_availability(product_key, enabled)
+        if affected == 0:
+            await message.answer("❌ Product ID not found."); return
+        await message.answer(("✅ Product is now available." if enabled else "✅ Product is now unavailable.") + f"\nAffected: {affected}")
+    except Exception:
+        await message.answer("Usage: /availability PRODUCT_ID available|unavailable")
+
+@router.message(Command("setavailable"))
+async def cmd_setavailable(message: Message):
+    if not admin_only(message): return
+    try:
+        product_key = message.text.split(maxsplit=1)[1].strip()
+        affected = await set_product_availability(product_key, True)
+        await message.answer(("✅ Product is now available." if affected else "❌ Product ID not found.") + (f"\nAffected: {affected}" if affected else ""))
+    except Exception:
+        await message.answer("Usage: /setavailable PRODUCT_ID")
+
+@router.message(Command("setunavailable"))
+async def cmd_setunavailable(message: Message):
+    if not admin_only(message): return
+    try:
+        product_key = message.text.split(maxsplit=1)[1].strip()
+        affected = await set_product_availability(product_key, False)
+        await message.answer(("✅ Product is now unavailable." if affected else "❌ Product ID not found.") + (f"\nAffected: {affected}" if affected else ""))
+    except Exception:
+        await message.answer("Usage: /setunavailable PRODUCT_ID")
+
 @router.message(Command("prices"))
 async def cmd_prices(message: Message):
     if not admin_only(message): return
@@ -1472,6 +1648,10 @@ ADMIN_HELP = """<b>MD STORE Admin Panel</b>
 /reply USER_ID MESSAGE
 /addproduct id|category|title|base_price|rate|ask_game_id(0/1)
 /delproduct PRODUCT_ID
+/availability PRODUCT_ID available|unavailable
+/setavailable PRODUCT_ID
+/setunavailable PRODUCT_ID
+Special groups: pre_order_cars, metro_sword
 /setrate CATEGORY PERCENT
 /setgamerate PERCENT
 /setcoderate PERCENT
@@ -1497,6 +1677,7 @@ async def main():
         raise RuntimeError("BOT_TOKEN is required")
     await db.init_db()
     await ensure_feature_schema()
+    await ensure_special_products()
     BOT = Bot(config.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
     dp.include_router(router)
