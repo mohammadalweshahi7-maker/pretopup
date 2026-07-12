@@ -292,6 +292,101 @@ async def backup_json() -> dict[str, Any]:
     }
 
 
+
+def _json_db_value(value: Any) -> Any:
+    """Convert JSON/backup values into SQLite-safe scalar values."""
+    if isinstance(value, bool):
+        return 1 if value else 0
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False)
+    return value
+
+
+async def restore_json_merge(data: dict[str, Any]) -> dict[str, int]:
+    """
+    Safely merge customer/account history from a backup JSON.
+
+    Restored: users (including balances, bans, minimums and saved language),
+    orders and payments.
+
+    Deliberately preserved from the NEW version: products, category rates,
+    coupons and settings. This prevents an old backup from undoing new bot
+    updates, new prices, new product placement, translations or configuration.
+
+    Existing rows with the same primary key are updated, missing rows are
+    inserted, and newer rows that exist only in the current database are kept.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("Backup root must be a JSON object")
+    if not isinstance(data.get("users"), list):
+        raise ValueError("Backup must contain a users list")
+
+    table_columns: dict[str, tuple[str, ...]] = {
+        "users": (
+            "id", "username", "first_name", "language_code", "language",
+            "balance", "is_banned", "min_purchase", "created_at", "last_seen",
+        ),
+        "orders": (
+            "id", "user_id", "product_id", "title", "price", "game_id",
+            "status", "admin_note", "created_at", "updated_at",
+        ),
+        "payments": (
+            "id", "user_id", "amount", "method", "address", "txid",
+            "status", "created_at", "expires_at",
+        ),
+    }
+    primary_keys = {"users": "id", "orders": "id", "payments": "id"}
+    report = {"users": 0, "orders": 0, "payments": 0}
+
+    async with _lock:
+        with _connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            try:
+                con.executescript(SCHEMA)
+
+                for table, columns in table_columns.items():
+                    rows = data.get(table, [])
+                    if rows is None:
+                        continue
+                    if not isinstance(rows, list):
+                        raise ValueError(f"{table} must be a list")
+
+                    pk = primary_keys[table]
+                    for raw in rows:
+                        if not isinstance(raw, dict) or raw.get(pk) is None:
+                            continue
+
+                        present_columns = [c for c in columns if c in raw]
+                        if pk not in present_columns:
+                            continue
+
+                        values = [_json_db_value(raw.get(c)) for c in present_columns]
+                        placeholders = ",".join("?" for _ in present_columns)
+                        insert_cols = ",".join(present_columns)
+                        update_cols = [c for c in present_columns if c != pk]
+
+                        if update_cols:
+                            update_sql = ",".join(f"{c}=excluded.{c}" for c in update_cols)
+                            sql = (
+                                f"INSERT INTO {table}({insert_cols}) VALUES({placeholders}) "
+                                f"ON CONFLICT({pk}) DO UPDATE SET {update_sql}"
+                            )
+                        else:
+                            sql = f"INSERT OR IGNORE INTO {table}({insert_cols}) VALUES({placeholders})"
+
+                        con.execute(sql, values)
+                        report[table] += 1
+
+                con.commit()
+            except Exception:
+                con.rollback()
+                raise
+
+    return report
+
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users(
     id INTEGER PRIMARY KEY,
