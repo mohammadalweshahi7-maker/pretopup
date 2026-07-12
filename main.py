@@ -41,6 +41,9 @@ class AdminFlow(StatesGroup):
 
 pending_products: dict[int, str] = {}
 pending_pay_method: dict[int, str] = {}
+# Track the latest bot UI message per user so menus and flows update in place
+# instead of creating a new bot message after every button press.
+last_ui_message: dict[int, tuple[int, int]] = {}
 
 BOT: Bot | None = None
 
@@ -667,6 +670,65 @@ async def notify_admin(text: str, reply_markup=None):
         except Exception as e:
             logging.warning("admin notify failed: %s", e)
 
+
+def _remember_ui_message(message: Message | None) -> None:
+    if message and message.from_user and message.chat:
+        last_ui_message[message.chat.id] = (message.chat.id, message.message_id)
+
+
+async def _send_ui(message: Message, text: str, reply_markup=None) -> Message:
+    """Send a UI message and remember it as the one to edit next."""
+    sent = await message.answer(text, reply_markup=reply_markup)
+    last_ui_message[message.from_user.id] = (sent.chat.id, sent.message_id)
+    return sent
+
+
+async def _edit_ui_from_message(message: Message, text: str, reply_markup=None) -> Message | None:
+    """Edit the user's latest bot UI message; fall back to sending once."""
+    if BOT:
+        target = last_ui_message.get(message.from_user.id)
+        if target:
+            try:
+                await message.delete()
+            except Exception:
+                pass
+            try:
+                edited = await BOT.edit_message_text(
+                    chat_id=target[0],
+                    message_id=target[1],
+                    text=text,
+                    reply_markup=reply_markup,
+                )
+                return edited if isinstance(edited, Message) else None
+            except Exception:
+                try:
+                    edited = await BOT.edit_message_caption(
+                        chat_id=target[0],
+                        message_id=target[1],
+                        caption=text,
+                        reply_markup=reply_markup,
+                    )
+                    return edited if isinstance(edited, Message) else None
+                except Exception:
+                    pass
+    return await _send_ui(message, text, reply_markup)
+
+
+async def _edit_ui_from_callback(call: CallbackQuery, text: str, reply_markup=None) -> None:
+    """Update the same callback message whenever Telegram allows it."""
+    try:
+        await call.message.edit_text(text, reply_markup=reply_markup)
+        last_ui_message[call.from_user.id] = (call.message.chat.id, call.message.message_id)
+        return
+    except Exception:
+        try:
+            await call.message.edit_caption(caption=text, reply_markup=reply_markup)
+            last_ui_message[call.from_user.id] = (call.message.chat.id, call.message.message_id)
+            return
+        except Exception:
+            sent = await call.message.answer(text, reply_markup=reply_markup)
+            last_ui_message[call.from_user.id] = (sent.chat.id, sent.message_id)
+
 async def user_guard(message: Message) -> bool:
     if not message.from_user:
         return False
@@ -688,7 +750,8 @@ async def user_guard(message: Message) -> bool:
 async def start(message: Message):
     if not await user_guard(message): return
     lang = await get_lang(message.from_user.id)
-    await message.answer(
+    await _send_ui(
+        message,
         await tr(message.from_user.id, "start"),
         reply_markup=main_menu_lang(lang)
     )
@@ -697,13 +760,13 @@ async def start(message: Message):
 async def voucher(message: Message):
     if not await user_guard(message): return
     lang = await get_lang(message.from_user.id)
-    await message.answer(await tr(message.from_user.id, "voucher_title"), reply_markup=kb.voucher_categories(lang))
+    await _edit_ui_from_message(message, await tr(message.from_user.id, "voucher_title"), reply_markup=kb.voucher_categories(lang))
 
 @router.message(F.text.in_(all_labels("gameid")))
 async def game_id(message: Message):
     if not await user_guard(message): return
     lang = await get_lang(message.from_user.id)
-    await message.answer(await tr(message.from_user.id, "game_title"), reply_markup=kb.game_categories(lang))
+    await _edit_ui_from_message(message, await tr(message.from_user.id, "game_title"), reply_markup=kb.game_categories(lang))
 
 @router.message(F.text.in_(all_labels("wallet")))
 async def wallet(message: Message):
@@ -718,7 +781,7 @@ async def wallet(message: Message):
         f"{tr_lang(lang, 'current_balance')}\n<code>{bal:.4f} $</code>\n"
         f"{tr_lang(lang, 'wallet_next')}"
     )
-    await message.answer(text, reply_markup=kb.wallet_keyboard(lang))
+    await _edit_ui_from_message(message, text, reply_markup=kb.wallet_keyboard(lang))
 
 @router.message(F.text.in_(all_labels("orders")))
 async def my_orders(message: Message):
@@ -726,7 +789,7 @@ async def my_orders(message: Message):
     lang = await get_lang(message.from_user.id)
     rows = await db.recent_orders(message.from_user.id)
     if not rows:
-        await message.answer(await tr(message.from_user.id, "no_orders"))
+        await _edit_ui_from_message(message, await tr(message.from_user.id, "no_orders"))
         return
     latest = rows[0]
     latest_title, latest_qty = parse_order_quantity(str(latest["title"]))
@@ -747,18 +810,18 @@ async def my_orders(message: Message):
             f"{tr_lang(lang, 'status')}: ✅ {str(r['status']).title()}\n"
             f"📅 {r['created_at'].strftime('%d.%m.%Y %H:%M')}"
         )
-    await message.answer(f"{tr_lang(lang, 'my_orders')}\n\n{latest_block}\n\n──────────\n\n" + "\n\n".join(history))
+    await _edit_ui_from_message(message, f"{tr_lang(lang, 'my_orders')}\n\n{latest_block}\n\n──────────\n\n" + "\n\n".join(history))
 
 @router.message(F.text.in_(all_labels("language")))
 async def language(message: Message):
     if not await user_guard(message): return
-    await message.answer(await tr(message.from_user.id, "choose_lang"), reply_markup=kb.langs_keyboard(await get_lang(message.from_user.id)))
+    await _edit_ui_from_message(message, await tr(message.from_user.id, "choose_lang"), reply_markup=kb.langs_keyboard(await get_lang(message.from_user.id)))
 
 @router.message(F.text.in_(all_labels("about")))
 async def about(message: Message):
     if not await user_guard(message): return
     lang = await get_lang(message.from_user.id)
-    await message.answer(tr_lang(lang, "terms_title"), reply_markup=kb.terms_keyboard(lang))
+    await _edit_ui_from_message(message, tr_lang(lang, "terms_title"), reply_markup=kb.terms_keyboard(lang))
 
 @router.callback_query(F.data.in_({"policy:tos", "policy:privacy", "policy:rules", "policy:faq"}))
 async def policy_page(call: CallbackQuery):
@@ -781,7 +844,8 @@ async def policy_menu(call: CallbackQuery):
 async def support(message: Message, state: FSMContext):
     if not await user_guard(message): return
     lang = await get_lang(message.from_user.id)
-    await message.answer(
+    await _edit_ui_from_message(
+        message,
         f"{tr_lang(lang, 'support_title')}\n\n"
         f"{tr_lang(lang, 'telegram_support')}\n{SUPPORT_USERNAME}\n\n"
         f"{tr_lang(lang, 'official_channel')}\n{config.channel_url}\n\n"
@@ -794,13 +858,15 @@ async def support_msg(message: Message, state: FSMContext):
     await notify_admin(
         f"📩 Support message\nFrom: <code>{message.from_user.id}</code> @{message.from_user.username or '-'}\n\n{message.text or '[non-text message]'}"
     )
-    await message.answer(await tr(message.from_user.id, "support_sent"))
+    await _edit_ui_from_message(message, await tr(message.from_user.id, "support_sent"))
     await state.clear()
 
 @router.callback_query(F.data == "home")
 async def cb_home(call: CallbackQuery):
     lang = await get_lang(call.from_user.id)
-    await call.message.answer(tr_lang(lang, "main_menu"), reply_markup=main_menu_lang(lang))
+    # Reply keyboards cannot be attached by editing an inline message, so refresh
+    # the same UI text and keep the existing persistent keyboard unchanged.
+    await _edit_ui_from_callback(call, tr_lang(lang, "main_menu"))
     await call.answer()
 
 @router.callback_query(F.data == "voucher")
@@ -834,10 +900,15 @@ async def cb_category(call: CallbackQuery, state: FSMContext):
         markup = InlineKeyboardMarkup(inline_keyboard=buttons)
         image = preorder_image_path()
         if image:
-            await call.message.answer_photo(FSInputFile(image), caption=special_text(lang, "ferrari_caption"), reply_markup=markup)
+            try:
+                await call.message.delete()
+            except Exception:
+                pass
+            sent = await call.message.answer_photo(FSInputFile(image), caption=special_text(lang, "ferrari_caption"), reply_markup=markup)
+            last_ui_message[call.from_user.id] = (sent.chat.id, sent.message_id)
         else:
             logging.warning("PRE ORDER CARS image was not found: %s", PREORDER_IMAGE_NAME)
-            await call.message.answer(special_text(lang, "ferrari_caption"), reply_markup=markup)
+            await _edit_ui_from_callback(call, special_text(lang, "ferrari_caption"), reply_markup=markup)
         await call.answer(); return
 
     if cat == "metro_sword":
@@ -846,7 +917,8 @@ async def cb_category(call: CallbackQuery, state: FSMContext):
             await call.answer(tr_lang(lang, "no_products"), show_alert=True); return
         await state.clear()
         await state.update_data(product_id=METRO_SWORD_ID, unit_price=80.0, quantity=1, quantity_label="1")
-        await call.message.answer(special_text(lang, "metro_prompt"))
+        await state.update_data(ui_chat_id=call.message.chat.id, ui_message_id=call.message.message_id)
+        await _edit_ui_from_callback(call, special_text(lang, "metro_prompt"))
         await state.set_state(UserFlow.waiting_game_id)
         await call.answer(); return
 
@@ -883,7 +955,8 @@ async def cb_special_buy(call: CallbackQuery, state: FSMContext):
     quantity_label = "1 Card" if product_id == FERRARI_ONE_ID else "3 Cards"
     await state.clear()
     await state.update_data(product_id=product_id, unit_price=total, quantity=1, quantity_label=quantity_label, special_total=total)
-    await call.message.answer(special_text(lang, "ferrari_prompt"))
+    await state.update_data(ui_chat_id=call.message.chat.id, ui_message_id=call.message.message_id)
+    await _edit_ui_from_callback(call, special_text(lang, "ferrari_prompt"))
     await state.set_state(UserFlow.waiting_game_id)
     await call.answer()
 
@@ -898,7 +971,8 @@ async def cb_buy(call: CallbackQuery, state: FSMContext):
     price = product_price(product, custom_rate)
     await state.clear()
     await state.update_data(product_id=product_id, unit_price=price)
-    await call.message.answer(tr_lang(lang, "enter_quantity", title=localize_title(str(product["title"]), lang), price=price))
+    await state.update_data(ui_chat_id=call.message.chat.id, ui_message_id=call.message.message_id)
+    await _edit_ui_from_callback(call, tr_lang(lang, "enter_quantity", title=localize_title(str(product["title"]), lang), price=price))
     await state.set_state(UserFlow.waiting_quantity)
     await call.answer()
 
@@ -910,14 +984,14 @@ async def got_quantity(message: Message, state: FSMContext):
         if quantity <= 0 or quantity > 100000:
             raise ValueError
     except Exception:
-        await message.answer(tr_lang(lang, "invalid_quantity")); return
+        await _edit_ui_from_message(message, tr_lang(lang, "invalid_quantity")); return
     data = await state.get_data()
     product = await db.get_product(data.get("product_id"))
     if not product:
-        await message.answer(tr_lang(lang, "product_unavailable")); await state.clear(); return
+        await _edit_ui_from_message(message, tr_lang(lang, "product_unavailable")); await state.clear(); return
     await state.update_data(quantity=quantity)
     if bool(product["ask_game_id"]):
-        await message.answer(tr_lang(lang, "enter_game_id"))
+        await _edit_ui_from_message(message, tr_lang(lang, "enter_game_id"))
         await state.set_state(UserFlow.waiting_game_id)
         return
     await show_order_confirmation(message, state, product, lang)
@@ -931,7 +1005,8 @@ async def show_order_confirmation(message: Message, state: FSMContext, product, 
     game_id = str(data.get("game_id", "")).strip()
     game_id_line = f"\nGame ID: <code>{game_id}</code>" if game_id else ""
     await state.update_data(total=total)
-    await message.answer(
+    await _edit_ui_from_message(
+        message,
         tr_lang(lang, "confirm_order", title=localize_title(str(product["title"]), lang), quantity=display_quantity, total=total, game_id_line=game_id_line),
         reply_markup=kb.confirm_order(lang),
     )
@@ -951,7 +1026,7 @@ async def order_cancel(call: CallbackQuery, state: FSMContext):
     lang = await get_lang(call.from_user.id)
     await state.clear()
     await call.message.edit_reply_markup(reply_markup=None)
-    await call.message.answer(tr_lang(lang, "cancelled"))
+    await _edit_ui_from_callback(call, tr_lang(lang, "cancelled"))
     await call.answer()
 
 @router.callback_query(F.data == "orderconfirm")
@@ -967,12 +1042,12 @@ async def order_confirm(call: CallbackQuery, state: FSMContext):
     order_title = f"{product['title']} x{quantity}"
     order = await db.create_order(call.from_user.id, str(product["id"]), order_title, total, game_id)
     if not order:
-        await call.message.answer(await tr(call.from_user.id, "no_balance"))
+        await _edit_ui_from_callback(call, await tr(call.from_user.id, "no_balance"))
     elif isinstance(order, dict) and order.get("error") == "MIN":
-        await call.message.answer(tr_lang(lang, "min_purchase", minimum=float(order["minimum"])))
+        await _edit_ui_from_callback(call, tr_lang(lang, "min_purchase", minimum=float(order["minimum"])))
     else:
         await call.message.edit_reply_markup(reply_markup=None)
-        await call.message.answer(await tr(call.from_user.id, "processing"))
+        await _edit_ui_from_callback(call, await tr(call.from_user.id, "processing"))
         await notify_admin(
             f"🆕 New Order #{order['id']}\nUser: {call.from_user.id}\n"
             f"Product: {product['title']} x{quantity}\nTotal: ${total:.2f}\nStatus: processing"
@@ -987,11 +1062,12 @@ async def cb_pay(call: CallbackQuery, state: FSMContext):
     pending_pay_method[call.from_user.id] = method
     lang = await get_lang(call.from_user.id)
     if method == "BYBIT":
-        await call.message.answer(tr_lang(lang, "bybit_payment", bybit_id=config.bybit_id))
+        await _edit_ui_from_callback(call, tr_lang(lang, "bybit_payment", bybit_id=config.bybit_id))
         await call.answer(); return
     label = {"BEP20": "USDT BEP20", "TRC20": "USDT TRC20", "APTOS": "Aptos"}.get(method, method)
     chain = {"BEP20": "BEP20 / BSC", "TRC20": "TRC20 / TRON", "APTOS": "Aptos"}.get(method, method)
-    await call.message.answer(tr_lang(lang, "payment_amount_prompt", label=label, chain=chain))
+    await state.update_data(ui_chat_id=call.message.chat.id, ui_message_id=call.message.message_id)
+    await _edit_ui_from_callback(call, tr_lang(lang, "payment_amount_prompt", label=label, chain=chain))
     await state.set_state(UserFlow.waiting_payment_amount)
     await call.answer()
 
@@ -1002,7 +1078,7 @@ async def payment_amount(message: Message, state: FSMContext):
         if amount <= 0:
             raise ValueError
     except Exception:
-        await message.answer(await tr(message.from_user.id, "invalid_amount"))
+        await _edit_ui_from_message(message, await tr(message.from_user.id, "invalid_amount"))
         return
 
     method = pending_pay_method.get(message.from_user.id, "BEP20")
@@ -1026,7 +1102,8 @@ async def payment_amount(message: Message, state: FSMContext):
     chain = {"BEP20": "BSC / BEP20", "TRC20": "TRC20 / TRON", "APTOS": "Aptos"}.get(method, method)
     lang = await get_lang(message.from_user.id)
     await state.update_data(payment_amount=amount, payment_method=method, payment_address=address, invoice_id=invoice_id)
-    await message.answer(
+    await _edit_ui_from_message(
+        message,
         tr_lang(lang, "invoice", amount=amount, chain=chain, address=address),
         reply_markup=kb.invoice_keyboard(method, lang)
     )
@@ -1060,7 +1137,7 @@ async def txid_received(message: Message, state: FSMContext):
         except Exception:
             pass
 
-    await message.answer(await tr(message.from_user.id, "txid_received"))
+    await _edit_ui_from_message(message, await tr(message.from_user.id, "txid_received"))
     await notify_admin(
         f"💰 Manual Payment Check Requested\n\n"
         f"Invoice ID: #{invoice_id or '-'}\n"
@@ -1078,14 +1155,13 @@ async def txid_received(message: Message, state: FSMContext):
 async def copy_addr(call: CallbackQuery):
     method = call.data.split(":",1)[1]
     address = {"BEP20": BEP20_ADDRESS, "TRC20": TRC20_ADDRESS, "APTOS": APTOS_ADDRESS}.get(method, BEP20_ADDRESS)
-    await call.message.answer(f"<code>{address}</code>")
-    await call.answer(await tr(call.from_user.id, "address_sent"))
+    await call.answer(address, show_alert=True)
 
 @router.callback_query(F.data == "cancelpay")
 async def cancelpay(call: CallbackQuery, state: FSMContext):
     await db.cancel_pending_payment(call.from_user.id)
     await state.clear()
-    await call.message.answer(await tr(call.from_user.id, "payment_cancelled"))
+    await _edit_ui_from_callback(call, await tr(call.from_user.id, "payment_cancelled"))
     await call.answer()
 
 @router.callback_query(F.data == "txhistory")
@@ -1093,20 +1169,21 @@ async def txhistory(call: CallbackQuery):
     lang = await get_lang(call.from_user.id)
     rows = await db.latest_payments(call.from_user.id)
     if not rows:
-        await call.message.answer(f"📊 📝 <b>{tr_lang(lang, 'transaction_history')}</b>\n\n{tr_lang(lang, 'no_transactions')}")
+        await _edit_ui_from_callback(call, f"📊 📝 <b>{tr_lang(lang, 'transaction_history')}</b>\n\n{tr_lang(lang, 'no_transactions')}")
         await call.answer(); return
     text = f"📊 📝 <b>{tr_lang(lang, 'transaction_history')}</b>\n\n" + "\n\n".join(
         f"{'✅' if r['status']=='CONFIRMED' else '❌' if 'CANCEL' in r['status'] else '⏳'} #{r['id']} | {float(r['amount']):.2f} $ | {r['method']}\n"
         f"📅 {r['created_at'].strftime('%d.%m.%Y %H:%M')} | {r['status']}"
         for r in rows
     )
-    await call.message.answer(text)
+    await _edit_ui_from_callback(call, text)
     await call.answer()
 
 @router.callback_query(F.data == "claimbonus")
 async def claim_bonus(call: CallbackQuery, state: FSMContext):
     await state.clear()
-    await call.message.answer(await tr(call.from_user.id, "enter_bonus"))
+    await state.update_data(ui_chat_id=call.message.chat.id, ui_message_id=call.message.message_id)
+    await _edit_ui_from_callback(call, await tr(call.from_user.id, "enter_bonus"))
     await state.set_state(UserFlow.waiting_bonus_code)
     await call.answer()
 
@@ -1122,27 +1199,27 @@ async def bonus_code_received(message: Message, state: FSMContext):
             code,
         )
         if not rows:
-            await message.answer(tr_lang(lang, "bonus_invalid")); await state.clear(); return
+            await _edit_ui_from_message(message, tr_lang(lang, "bonus_invalid")); await state.clear(); return
         used = await db.fetch("SELECT status FROM user_bonus_claims WHERE user_id=$1 AND code=$2", message.from_user.id, code)
         if used:
-            await message.answer(tr_lang(lang, "bonus_used")); await state.clear(); return
+            await _edit_ui_from_message(message, tr_lang(lang, "bonus_used")); await state.clear(); return
         max_uses = _row_get(rows[0], "max_uses")
         if max_uses is not None:
             count_rows = await db.fetch("SELECT COUNT(*) AS c FROM user_bonus_claims WHERE code=$1", code)
             if count_rows and int(_row_get(count_rows[0], "c", 0)) >= int(max_uses):
-                await message.answer(tr_lang(lang, "bonus_invalid")); await state.clear(); return
+                await _edit_ui_from_message(message, tr_lang(lang, "bonus_invalid")); await state.clear(); return
         await db.execute("INSERT INTO user_bonus_claims(user_id,code,status) VALUES($1,$2,'PENDING')", message.from_user.id, code)
-        await message.answer(tr_lang(lang, "bonus_reserved", minimum=float(rows[0]["min_deposit"]), bonus=float(rows[0]["bonus_amount"])))
+        await _edit_ui_from_message(message, tr_lang(lang, "bonus_reserved", minimum=float(rows[0]["min_deposit"]), bonus=float(rows[0]["bonus_amount"])))
     except Exception as exc:
         logging.exception("claim bonus failed: %s", exc)
-        await message.answer(tr_lang(lang, "bonus_invalid"))
+        await _edit_ui_from_message(message, tr_lang(lang, "bonus_invalid"))
     await state.clear()
 
 @router.callback_query(F.data.startswith("lang:"))
 async def set_lang(call: CallbackQuery):
     lang = call.data.split(":",1)[1]
     await db.execute("UPDATE users SET language=$2 WHERE id=$1", call.from_user.id, lang)
-    await call.message.answer(await tr(call.from_user.id, "lang_saved"), reply_markup=main_menu_lang(lang))
+    await _edit_ui_from_callback(call, await tr(call.from_user.id, "lang_saved"))
     await call.answer()
 
 # Admin commands
