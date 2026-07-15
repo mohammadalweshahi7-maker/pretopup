@@ -50,7 +50,7 @@ BOT: Bot | None = None
 
 # Requested production values. Existing visual design and database remain unchanged.
 SUPPORT_USERNAME = "@prime_Manaager"
-BEP20_ADDRESS = "0x93eFDBD2857BC82411cA5B3E76E0C040bfd60A1b"
+BEP20_ADDRESS = "0x4747322918B9761f01b94edd43957117C079281A"
 TRC20_ADDRESS = "TPhmLfuWvMK2MFuNgixqE62EbCN1TfGdHT"
 APTOS_ADDRESS = "0x2f4165b8f2d036f768aa8b7df864223daaee9780682f82bb3077244aedee7840"
 
